@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111827">
+    <title>WakeMe@Stop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+        .leaflet-container {
+            height: 100%;
+            width: 100%;
+        }
+        /* Style for range input track */
+        input[type=range].accent-teal-500::-webkit-slider-runnable-track {
+            background-color: #374151; /* bg-gray-700 */
+        }
+        input[type=range].accent-teal-500::-moz-range-track {
+            background-color: #374151; /* bg-gray-700 */
+        }
+        /* Style for range input thumb */
+        input[type=range].accent-teal-500::-webkit-slider-thumb {
+            background-color: #14b8a6; /* accent-teal-500 */
+        }
+        input[type=range].accent-teal-500::-moz-range-thumb {
+            background-color: #14b8a6; /* accent-teal-500 */
+        }
+
+        @keyframes slide-in-from-right {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-in-from-right { animation: slide-in-from-right 0.3s ease-out forwards; }
+
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.1.1/",
+    "react": "https://esm.sh/react@^19.1.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "react-leaflet": "https://esm.sh/react-leaflet@^5.0.0",
+    "leaflet": "https://esm.sh/leaflet@^1.9.4",
+    "@google/genai": "https://esm.sh/@google/genai"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-900">
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
