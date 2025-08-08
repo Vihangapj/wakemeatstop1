@@ -6,6 +6,7 @@ import IconTarget from './icons/IconTarget';
 import IconUserLocation from './icons/IconUserLocation';
 import { renderToStaticMarkup } from 'react-dom/server';
 import MapAnimator from './MapAnimator';
+import FloatingMapButtons from './FloatingMapButtons';
 
 interface MapThemeConfig {
   url: string;
@@ -34,6 +35,11 @@ interface MapComponentProps {
   radius: number;
   isTracking: boolean;
   mapTheme: MapTheme;
+  panRequest: LatLngTuple | null;
+  setPanRequest: (position: LatLngTuple | null) => void;
+  onToggleSettings: () => void;
+  onCenterOnUser: () => void;
+  isUserLocationAvailable: boolean;
 }
 
 const userIconSvg = renderToStaticMarkup(<div className="relative flex items-center justify-center"><div className="absolute w-6 h-6 bg-blue-500 rounded-full animate-ping opacity-75"></div><IconUserLocation className="relative w-8 h-8 text-blue-400 drop-shadow-lg" /></div>);
@@ -63,20 +69,26 @@ const MapClickHandler: React.FC<{ setDestination: (pos: LatLngTuple) => void, is
   return null;
 };
 
-const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, setDestination, radius, isTracking, mapTheme }) => {
+const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, setDestination, radius, isTracking, mapTheme, panRequest, setPanRequest, onToggleSettings, onCenterOnUser, isUserLocationAvailable }) => {
   const defaultCenter: LatLngTuple = [51.505, -0.09];
   const center = userPosition || defaultCenter;
   const themeConfig = mapThemes[mapTheme];
 
   return (
-    <MapContainer center={center} zoom={13} scrollWheelZoom={true}>
+    <MapContainer center={center} zoom={13} scrollWheelZoom={true} zoomControl={false}>
       <TileLayer
         key={mapTheme} // Add key to force re-render on theme change
         url={themeConfig.url}
         attribution={themeConfig.attribution}
       />
       <MapClickHandler setDestination={setDestination} isTracking={isTracking} />
-      <MapAnimator destination={destination} userPosition={userPosition} isTracking={isTracking} />
+      <MapAnimator 
+        destination={destination} 
+        userPosition={userPosition} 
+        isTracking={isTracking}
+        panRequest={panRequest}
+        setPanRequest={setPanRequest}
+      />
       
       {userPosition && (
         <Marker position={userPosition} icon={userIcon} />
@@ -103,6 +115,11 @@ const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, 
             positions={[userPosition, destination]}
         />
       )}
+      <FloatingMapButtons 
+        onCenterOnUser={onCenterOnUser}
+        onToggleSettings={onToggleSettings}
+        isUserLocationAvailable={isUserLocationAvailable}
+      />
     </MapContainer>
   );
 };

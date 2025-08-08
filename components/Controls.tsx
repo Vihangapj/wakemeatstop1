@@ -87,14 +87,14 @@ const Controls: React.FC<ControlsProps> = ({
                 step="100"
                 value={radius}
                 onChange={(e) => setRadius(Number(e.target.value))}
-                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg accent-teal-500"
+                className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg accent-teal-500"
                 disabled={isTracking || !hasDestination}
               />
             </div>
-            <div className="grid grid-cols-3 gap-2">
-                <button onClick={() => toggleAlertOption('sound')} className={`flex items-center justify-center p-2 rounded-lg text-sm transition-all duration-200 border-2 ${alertOptions.sound ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`} disabled={isTracking} aria-label="Toggle sound alert"><IconBell className="w-5 h-5"/></button>
-                <button onClick={() => toggleAlertOption('vibration')} className={`flex items-center justify-center p-2 rounded-lg text-sm transition-all duration-200 border-2 ${alertOptions.vibration ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`} disabled={isTracking} aria-label="Toggle vibration alert"><IconVibration className="w-5 h-5"/></button>
-                <button onClick={() => toggleAlertOption('voice')} className={`flex items-center justify-center p-2 rounded-lg text-sm transition-all duration-200 border-2 ${alertOptions.voice ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`} disabled={isTracking} aria-label="Toggle voice alert"><IconSpeaker className="w-5 h-5"/></button>
+            <div className="grid grid-cols-3 gap-3">
+                <button onClick={() => toggleAlertOption('sound')} className={`flex items-center justify-center p-3 rounded-full text-sm transition-all duration-200 border-2 active:scale-110 ${alertOptions.sound ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`} disabled={isTracking} aria-label="Toggle sound alert"><IconBell className="w-6 h-6"/></button>
+                <button onClick={() => toggleAlertOption('vibration')} className={`flex items-center justify-center p-3 rounded-full text-sm transition-all duration-200 border-2 active:scale-110 ${alertOptions.vibration ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`} disabled={isTracking} aria-label="Toggle vibration alert"><IconVibration className="w-6 h-6"/></button>
+                <button onClick={() => toggleAlertOption('voice')} className={`flex items-center justify-center p-3 rounded-full text-sm transition-all duration-200 border-2 active:scale-110 ${alertOptions.voice ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`} disabled={isTracking} aria-label="Toggle voice alert"><IconSpeaker className="w-6 h-6"/></button>
             </div>
         </div>
         
@@ -112,7 +112,7 @@ const Controls: React.FC<ControlsProps> = ({
               disabled={!hasDestination || !!geolocationError}
               className={`w-full font-bold py-3 px-4 rounded-lg transition-all duration-300 text-lg
                 ${!hasDestination || !!geolocationError ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 
-                isTracking ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-teal-600 hover:bg-teal-500 text-white shadow-lg shadow-teal-500/30'}`}
+                isTracking ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white shadow-lg shadow-teal-500/30'}`}
             >
               {isTracking ? 'Stop Tracking' : 'Start Tracking'}
             </button>

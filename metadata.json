@@ -1,5 +1,8 @@
 {
   "name": "WakeMe@Stop",
   "description": "A smart transit alert system. Set a destination by tapping the map, using the AI Assistant, or choosing a favorite place. Get notified with sound, vibration, or voice alerts when you get close.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "prompt": ""
 }

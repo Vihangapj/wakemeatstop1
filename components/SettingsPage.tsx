@@ -69,11 +69,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           </button>
         </header>
 
-        <div className="p-6 space-y-6 overflow-y-auto flex-grow">
+        <div className="p-4 space-y-4 overflow-y-auto flex-grow">
           {/* Favorite Places Setting */}
-          <div>
+          <div className="bg-gray-800/50 rounded-xl p-4">
             <h3 className="text-lg font-semibold text-gray-200 mb-3">Favorite Places</h3>
-            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
               {favorites.length > 0 ? (
                 favorites.map(fav => (
                   <div key={fav.id} className="bg-gray-700 rounded-lg p-3 flex items-center justify-between">
@@ -90,82 +90,80 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
           </div>
         
-          <div className="border-t border-gray-700 pt-6 space-y-6">
-             {/* Alert Sound Setting */}
-            <div>
-              <label htmlFor="ringtone-select" className="block text-sm font-medium text-gray-300 mb-2">Alert Sound</label>
-              <div className="flex items-center gap-2">
-                <select
-                  id="ringtone-select"
-                  value={selectedRingtoneId}
-                  onChange={(e) => setSelectedRingtoneId(e.target.value)}
-                  className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-2.5 text-white focus:outline-none focus:border-teal-500 transition-colors"
-                >
-                  {ringtones.map(ringtone => (
-                    <option key={ringtone.id} value={ringtone.id}>
-                      {ringtone.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                    onClick={handlePreviewSound}
-                    className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg border-2 border-gray-600 transition-colors flex-shrink-0"
-                    aria-label="Preview sound"
-                >
-                    <IconPlay className="w-5 h-5 text-teal-400" />
-                </button>
-              </div>
-            </div>
-
-            {/* Map Theme Setting */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Map Theme</label>
-              <div className="grid grid-cols-3 gap-2">
-                {mapThemes.map(({ id, label }) => (
-                  <button
-                    key={id}
-                    onClick={() => setMapTheme(id)}
-                    className={`p-2 rounded-lg text-sm transition-all duration-200 border-2 ${mapTheme === id ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
-                  >
-                    {label}
-                  </button>
+          {/* Alert Sound Setting */}
+          <div className="bg-gray-800/50 rounded-xl p-4">
+            <label htmlFor="ringtone-select" className="block text-base font-medium text-gray-300 mb-2">Alert Sound</label>
+            <div className="flex items-center gap-2">
+              <select
+                id="ringtone-select"
+                value={selectedRingtoneId}
+                onChange={(e) => setSelectedRingtoneId(e.target.value)}
+                className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-2.5 text-white focus:outline-none focus:border-teal-500 transition-colors"
+              >
+                {ringtones.map(ringtone => (
+                  <option key={ringtone.id} value={ringtone.id}>
+                    {ringtone.name}
+                  </option>
                 ))}
-              </div>
-            </div>
-
-            {/* GPS Accuracy Setting */}
-            <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
-              <div>
-                <label htmlFor="gps-accuracy" className="block text-sm font-medium text-gray-300">High Accuracy GPS</label>
-                <p className="text-xs text-gray-400">More precise, uses more battery.</p>
-              </div>
+              </select>
               <button
-                id="gps-accuracy"
-                onClick={() => setHighAccuracyGPS(!highAccuracyGPS)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${highAccuracyGPS ? 'bg-teal-500' : 'bg-gray-600'}`}
-                role="switch"
-                aria-checked={highAccuracyGPS}
+                  onClick={handlePreviewSound}
+                  className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg border-2 border-gray-600 transition-colors flex-shrink-0"
+                  aria-label="Preview sound"
               >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${highAccuracyGPS ? 'translate-x-6' : 'translate-x-1'}`} />
+                  <IconPlay className="w-5 h-5 text-teal-400" />
               </button>
             </div>
+          </div>
 
-            {/* Keep Screen On Setting */}
-            <div className="flex items-center justify-between bg-gray-700/50 p-3 rounded-lg">
-              <div>
-                <label htmlFor="keep-screen-on" className="block text-sm font-medium text-gray-300">Keep Screen On</label>
-                <p className="text-xs text-gray-400">Prevents screen from sleeping.</p>
-              </div>
-              <button
-                id="keep-screen-on"
-                onClick={() => setKeepScreenOn(!keepScreenOn)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${keepScreenOn ? 'bg-teal-500' : 'bg-gray-600'}`}
-                role="switch"
-                aria-checked={keepScreenOn}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${keepScreenOn ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
+          {/* Map Theme Setting */}
+          <div className="bg-gray-800/50 rounded-xl p-4">
+            <label className="block text-base font-medium text-gray-300 mb-2">Map Theme</label>
+            <div className="grid grid-cols-3 gap-2">
+              {mapThemes.map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setMapTheme(id)}
+                  className={`p-2 rounded-lg text-sm transition-all duration-200 border-2 ${mapTheme === id ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* GPS Accuracy Setting */}
+          <div className="bg-gray-800/50 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <label htmlFor="gps-accuracy" className="block text-base font-medium text-gray-300">High Accuracy GPS</label>
+              <p className="text-xs text-gray-400">More precise, uses more battery.</p>
+            </div>
+            <button
+              id="gps-accuracy"
+              onClick={() => setHighAccuracyGPS(!highAccuracyGPS)}
+              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ${highAccuracyGPS ? 'bg-teal-500' : 'bg-gray-600'}`}
+              role="switch"
+              aria-checked={highAccuracyGPS}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-300 ${highAccuracyGPS ? 'translate-x-8' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {/* Keep Screen On Setting */}
+          <div className="bg-gray-800/50 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <label htmlFor="keep-screen-on" className="block text-base font-medium text-gray-300">Keep Screen On</label>
+              <p className="text-xs text-gray-400">Prevents screen from sleeping.</p>
+            </div>
+            <button
+              id="keep-screen-on"
+              onClick={() => setKeepScreenOn(!keepScreenOn)}
+              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ${keepScreenOn ? 'bg-teal-500' : 'bg-gray-600'}`}
+              role="switch"
+              aria-checked={keepScreenOn}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-300 ${keepScreenOn ? 'translate-x-8' : 'translate-x-1'}`} />
+            </button>
           </div>
         </div>
         

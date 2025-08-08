@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [isAlerting, setIsAlerting] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState<boolean>(false);
+  const [panRequest, setPanRequest] = useState<LatLngTuple | null>(null);
 
   // Persistent settings
   const [showIntro, setShowIntro] = usePersistentState<boolean>('wakeme_showIntro', true);
@@ -34,7 +35,7 @@ const App: React.FC = () => {
   const [selectedRingtoneId, setSelectedRingtoneId] = usePersistentState<string>('wakeme_ringtoneId', 'alarm-clock');
 
   // Hooks
-  const { position: userPosition, speed, error: geolocationError } = useGeolocation(isTracking, { enableHighAccuracy: highAccuracyGPS });
+  const { position: userPosition, speed, error: geolocationError } = useGeolocation(true, { enableHighAccuracy: highAccuracyGPS });
   useWakeLock(keepScreenOn && isTracking);
 
   const selectedRingtone = useMemo(() => {
@@ -49,6 +50,12 @@ const App: React.FC = () => {
   
   const handleToggleSettings = useCallback(() => setIsSettingsOpen(prev => !prev), []);
   const handleToggleAIAssistant = useCallback(() => setIsAIAssistantOpen(prev => !prev), []);
+  
+  const handleCenterOnUser = useCallback(() => {
+    if (userPosition) {
+        setPanRequest(userPosition);
+    }
+  }, [userPosition]);
 
   const handleDismissAlert = useCallback(() => {
     setIsAlerting(false);
@@ -120,7 +127,7 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen bg-gray-900 text-white font-sans overflow-hidden">
-      <Header onToggleSettings={handleToggleSettings} />
+      <Header />
       <main className="relative h-full w-full">
         <MapComponent
             userPosition={userPosition}
@@ -129,6 +136,11 @@ const App: React.FC = () => {
             radius={radius}
             isTracking={isTracking}
             mapTheme={mapTheme}
+            panRequest={panRequest}
+            setPanRequest={setPanRequest}
+            onToggleSettings={handleToggleSettings}
+            onCenterOnUser={handleCenterOnUser}
+            isUserLocationAvailable={!!userPosition}
         />
       </main>
       <Controls
@@ -158,7 +170,10 @@ const App: React.FC = () => {
             keepScreenOn={keepScreenOn}
             setKeepScreenOn={setKeepScreenOn}
             favorites={favorites}
-            onSelectFavorite={setDestination}
+            onSelectFavorite={(pos) => {
+              setDestination(pos);
+              setIsSettingsOpen(false);
+            }}
             onDeleteFavorite={handleDeleteFavorite}
             selectedRingtoneId={selectedRingtoneId}
             setSelectedRingtoneId={setSelectedRingtoneId}
