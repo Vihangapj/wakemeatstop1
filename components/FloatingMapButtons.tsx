@@ -57,7 +57,7 @@ const FloatingMapButtons: React.FC<FloatingMapButtonsProps> = ({ onCenterOnUser,
                     <IconCrosshairs className="w-6 h-6" />
                 </FloatingButton>
             </div>
-            <div ref={bottomControlsRef} className="absolute bottom-[14.5rem] right-4 z-[1010] flex flex-col gap-2">
+            <div ref={bottomControlsRef} className="absolute bottom-[19rem] right-4 z-[1010] flex flex-col gap-2">
                 <FloatingButton onClick={zoomIn} aria-label="Zoom in">
                     <IconPlus className="w-6 h-6" />
                 </FloatingButton>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { LatLngTuple, MapTheme, AlertOptions, Favorite, Ringtone } from './types';
+import { LatLngTuple, MapTheme, AlertOptions, Favorite, Ringtone, Alert, AlertDistance } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { calculateDistance } from './utils/geo';
 import { ringtones } from './data/ringtones';
@@ -24,9 +24,16 @@ const App: React.FC = () => {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState<boolean>(false);
   const [panRequest, setPanRequest] = useState<LatLngTuple | null>(null);
 
+  // New state for multiple alerts
+  const [activeAlerts, setActiveAlerts] = useState<Alert[]>([]);
+  const [triggeredAlert, setTriggeredAlert] = useState<Alert | null>(null);
+
   // Persistent settings
   const [showIntro, setShowIntro] = usePersistentState<boolean>('wakeme_showIntro', true);
-  const [radius, setRadius] = usePersistentState<number>('wakeme_radius', 1000);
+  const [alertDistances, setAlertDistances] = usePersistentState<AlertDistance[]>('wakeme_alertDistances', [
+    { id: '1', distance: 1000 },
+    { id: '2', distance: 500 },
+  ]);
   const [alertOptions, setAlertOptions] = usePersistentState<AlertOptions>('wakeme_alertOptions', { sound: true, vibration: true, voice: false });
   const [mapTheme, setMapTheme] = usePersistentState<MapTheme>('wakeme_mapTheme', 'dark');
   const [highAccuracyGPS, setHighAccuracyGPS] = usePersistentState<boolean>('wakeme_highAccuracyGPS', true);
@@ -42,11 +49,38 @@ const App: React.FC = () => {
     return ringtones.find(r => r.id === selectedRingtoneId) || ringtones[0];
   }, [selectedRingtoneId]);
 
+  const handleSetDestination = useCallback((pos: LatLngTuple | null) => {
+    setDestination(pos);
+    setIsTracking(false);
+    setActiveAlerts([]);
+    setTriggeredAlert(null);
+    setIsAlerting(false);
+    setDistance(null);
+    setEta(null);
+  }, []);
+
   const handleToggleTracking = useCallback(() => {
     if (destination) {
-      setIsTracking(prev => !prev);
+      setIsTracking(prev => {
+        const newTrackingState = !prev;
+        if (newTrackingState) {
+          // Starting tracking: create active alerts from saved distances
+          const newAlerts = alertDistances
+            .sort((a, b) => b.distance - a.distance) // Process larger distances first
+            .map(alert => ({
+              id: `${alert.id}-${new Date().getTime()}`,
+              distance: alert.distance,
+              triggered: false,
+            }));
+          setActiveAlerts(newAlerts);
+        } else {
+          // Stopping tracking: clear active alerts
+          setActiveAlerts([]);
+        }
+        return newTrackingState;
+      });
     }
-  }, [destination]);
+  }, [destination, alertDistances]);
   
   const handleToggleSettings = useCallback(() => setIsSettingsOpen(prev => !prev), []);
   const handleToggleAIAssistant = useCallback(() => setIsAIAssistantOpen(prev => !prev), []);
@@ -57,12 +91,14 @@ const App: React.FC = () => {
     }
   }, [userPosition]);
 
-  const handleDismissAlert = useCallback(() => {
+  const handleAcknowledgeAlert = useCallback(() => {
+    if (triggeredAlert) {
+      // Mark the acknowledged alert as triggered
+      setActiveAlerts(prev => prev.map(a => a.id === triggeredAlert.id ? { ...a, triggered: true } : a));
+    }
     setIsAlerting(false);
-    setDestination(null);
-    setDistance(null);
-    setIsTracking(false);
-  }, []);
+    setTriggeredAlert(null);
+  }, [triggeredAlert]);
   
   const handleSaveFavorite = useCallback(() => {
     if (!destination) return;
@@ -87,38 +123,45 @@ const App: React.FC = () => {
   }, [destination, favorites]);
 
   useEffect(() => {
-    if (isTracking && userPosition && destination) {
-      const dist = calculateDistance(
-        userPosition[0],
-        userPosition[1],
-        destination[0],
-        destination[1]
-      );
-      setDistance(dist);
-      
-      // Calculate ETA
-      if (speed && speed > 1) { // speed is in m/s
-        const timeInSeconds = dist / speed;
-        const minutes = Math.floor(timeInSeconds / 60);
-        const hours = Math.floor(minutes / 60);
-        if (hours > 0) {
-            setEta(`${hours}h ${minutes % 60}m`);
-        } else {
-            setEta(`${minutes}m`);
-        }
-      } else {
-        setEta(null);
-      }
-      
-      if (dist <= radius) {
-        setIsAlerting(true);
-        setIsTracking(false);
-      }
-    } else if (!isTracking) {
+    // Don't do anything if not tracking, or an alert is already active
+    if (!isTracking || !userPosition || !destination || isAlerting) {
+      if (!isTracking) {
         setDistance(null);
         setEta(null);
+      }
+      return;
     }
-  }, [isTracking, userPosition, destination, radius, speed]);
+
+    const dist = calculateDistance(userPosition[0], userPosition[1], destination[0], destination[1]);
+    setDistance(dist);
+
+    // Calculate ETA
+    if (speed && speed > 1) { // speed is in m/s
+      const timeInSeconds = dist / speed;
+      const minutes = Math.floor(timeInSeconds / 60);
+      const hours = Math.floor(minutes / 60);
+      if (hours > 0) {
+          setEta(`${hours}h ${minutes % 60}m`);
+      } else {
+          setEta(`${minutes}m`);
+      }
+    } else {
+      setEta(null);
+    }
+
+    // Find the next untriggered alert whose radius has been entered.
+    // We sort by distance to ensure we trigger the outermost alert first if multiple are crossed at once.
+    const alertToFire = activeAlerts
+        .filter(alert => !alert.triggered && dist <= alert.distance)
+        .sort((a,b) => b.distance - a.distance)[0];
+
+
+    if (alertToFire) {
+      setTriggeredAlert(alertToFire);
+      setIsAlerting(true);
+      // Don't stop tracking, just alert and wait for acknowledgement
+    }
+  }, [isTracking, userPosition, destination, speed, activeAlerts, isAlerting]);
 
 
   if (showIntro) {
@@ -132,8 +175,8 @@ const App: React.FC = () => {
         <MapComponent
             userPosition={userPosition}
             destination={destination}
-            setDestination={setDestination}
-            radius={radius}
+            setDestination={handleSetDestination}
+            alertDistances={alertDistances}
             isTracking={isTracking}
             mapTheme={mapTheme}
             panRequest={panRequest}
@@ -144,8 +187,8 @@ const App: React.FC = () => {
         />
       </main>
       <Controls
-        radius={radius}
-        setRadius={setRadius}
+        alertDistances={alertDistances}
+        setAlertDistances={setAlertDistances}
         alertOptions={alertOptions}
         setAlertOptions={setAlertOptions}
         isTracking={isTracking}
@@ -158,7 +201,14 @@ const App: React.FC = () => {
         onSaveFavorite={handleSaveFavorite}
         isFavorite={isCurrentDestinationFavorite}
       />
-      {isAlerting && <AlertModal onDismiss={handleDismissAlert} alertOptions={alertOptions} ringtoneUrl={selectedRingtone.url} />}
+      {isAlerting && triggeredAlert && (
+        <AlertModal 
+            onAcknowledge={handleAcknowledgeAlert} 
+            alertOptions={alertOptions} 
+            ringtoneUrl={selectedRingtone.url}
+            triggeredDistance={triggeredAlert.distance}
+        />
+      )}
       
       {isSettingsOpen && (
           <SettingsPage 
@@ -171,7 +221,7 @@ const App: React.FC = () => {
             setKeepScreenOn={setKeepScreenOn}
             favorites={favorites}
             onSelectFavorite={(pos) => {
-              setDestination(pos);
+              handleSetDestination(pos);
               setIsSettingsOpen(false);
             }}
             onDeleteFavorite={handleDeleteFavorite}
@@ -184,7 +234,7 @@ const App: React.FC = () => {
         <AIAssistantModal 
             onClose={handleToggleAIAssistant}
             onDestinationFound={(pos) => {
-                setDestination(pos);
+                handleSetDestination(pos);
                 setIsAIAssistantOpen(false);
             }}
         />

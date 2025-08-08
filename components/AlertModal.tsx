@@ -6,12 +6,13 @@ import IconVibration from './icons/IconVibration';
 import IconSpeaker from './icons/IconSpeaker';
 
 interface AlertModalProps {
-  onDismiss: () => void;
+  onAcknowledge: () => void;
   alertOptions: AlertOptions;
   ringtoneUrl: string;
+  triggeredDistance: number;
 }
 
-const AlertModal: React.FC<AlertModalProps> = ({ onDismiss, alertOptions, ringtoneUrl }) => {
+const AlertModal: React.FC<AlertModalProps> = ({ onAcknowledge, alertOptions, ringtoneUrl, triggeredDistance }) => {
   useEffect(() => {
     alertService.start(alertOptions, ringtoneUrl);
     return () => {
@@ -27,13 +28,13 @@ const AlertModal: React.FC<AlertModalProps> = ({ onDismiss, alertOptions, ringto
             {alertOptions.vibration && <IconVibration className="w-12 h-12 text-teal-400 animate-pulse" />}
             {alertOptions.voice && <IconSpeaker className="w-12 h-12 text-teal-400" />}
         </div>
-        <h2 className="text-3xl font-bold text-white mb-3">You've Arrived!</h2>
-        <p className="text-gray-300 mb-8">You are within the alert radius of your destination.</p>
+        <h2 className="text-3xl font-bold text-white mb-3">Approaching!</h2>
+        <p className="text-gray-300 mb-8">You are within the <span className="font-bold text-teal-300">{triggeredDistance}m</span> radius.</p>
         <button
-          onClick={onDismiss}
+          onClick={onAcknowledge}
           className="w-full bg-teal-500 hover:bg-teal-400 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-opacity-75"
         >
-          Dismiss
+          Acknowledge
         </button>
       </div>
     </div>

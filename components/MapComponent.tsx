@@ -1,7 +1,7 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents, Polyline } from 'react-leaflet';
 import L from 'leaflet';
-import { LatLngTuple, MapTheme } from '../types';
+import { LatLngTuple, MapTheme, AlertDistance } from '../types';
 import IconTarget from './icons/IconTarget';
 import IconUserLocation from './icons/IconUserLocation';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -32,7 +32,7 @@ interface MapComponentProps {
   userPosition: LatLngTuple | null;
   destination: LatLngTuple | null;
   setDestination: (position: LatLngTuple) => void;
-  radius: number;
+  alertDistances: AlertDistance[];
   isTracking: boolean;
   mapTheme: MapTheme;
   panRequest: LatLngTuple | null;
@@ -69,7 +69,7 @@ const MapClickHandler: React.FC<{ setDestination: (pos: LatLngTuple) => void, is
   return null;
 };
 
-const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, setDestination, radius, isTracking, mapTheme, panRequest, setPanRequest, onToggleSettings, onCenterOnUser, isUserLocationAvailable }) => {
+const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, setDestination, alertDistances, isTracking, mapTheme, panRequest, setPanRequest, onToggleSettings, onCenterOnUser, isUserLocationAvailable }) => {
   const defaultCenter: LatLngTuple = [51.505, -0.09];
   const center = userPosition || defaultCenter;
   const themeConfig = mapThemes[mapTheme];
@@ -97,15 +97,19 @@ const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, 
       {destination && (
         <>
           <Marker position={destination} icon={destinationIcon} />
-          <Circle
-            center={destination}
-            pathOptions={{
-              color: isTracking ? '#0d9488' : '#f43f5e',
-              fillColor: isTracking ? '#14b8a6' : '#ef4444',
-              fillOpacity: 0.2,
-            }}
-            radius={radius}
-          />
+          {alertDistances.map(alert => (
+            <Circle
+              key={alert.id}
+              center={destination}
+              pathOptions={{
+                color: isTracking ? '#0d9488' : '#f43f5e',
+                fillColor: isTracking ? '#14b8a6' : '#ef4444',
+                fillOpacity: 0.15,
+                weight: 2,
+              }}
+              radius={alert.distance}
+            />
+          ))}
         </>
       )}
 

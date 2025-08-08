@@ -1,15 +1,17 @@
 import React from 'react';
-import { AlertOptions } from '../types';
+import { AlertOptions, AlertDistance } from '../types';
 import IconBell from './icons/IconBell';
 import IconVibration from './icons/IconVibration';
 import IconSpeaker from './icons/IconSpeaker';
 import IconSparkles from './icons/IconSparkles';
 import IconStar from './icons/IconStar';
 import IconClock from './icons/IconClock';
+import IconPlus from './icons/IconPlus';
+import AlertPill from './AlertPill';
 
 interface ControlsProps {
-  radius: number;
-  setRadius: (radius: number) => void;
+  alertDistances: AlertDistance[];
+  setAlertDistances: (updater: (prev: AlertDistance[]) => AlertDistance[]) => void;
   alertOptions: AlertOptions;
   setAlertOptions: (options: AlertOptions) => void;
   isTracking: boolean;
@@ -24,8 +26,8 @@ interface ControlsProps {
 }
 
 const Controls: React.FC<ControlsProps> = ({
-  radius,
-  setRadius,
+  alertDistances,
+  setAlertDistances,
   alertOptions,
   setAlertOptions,
   isTracking,
@@ -65,6 +67,27 @@ const Controls: React.FC<ControlsProps> = ({
   const toggleAlertOption = (option: keyof AlertOptions) => {
     setAlertOptions({ ...alertOptions, [option]: !alertOptions[option] });
   };
+  
+  const handleAddAlert = () => {
+    // Add a new alert with a default value and a unique ID
+    setAlertDistances(prev => 
+      [...prev, { id: Date.now().toString(), distance: 500 }]
+      .sort((a,b) => b.distance - a.distance)
+    );
+  };
+
+  const handleUpdateAlert = (idToUpdate: string, newDistance: number) => {
+    setAlertDistances(prev =>
+      prev
+        .map(a => a.id === idToUpdate ? { ...a, distance: newDistance } : a)
+        .sort((a,b) => b.distance - a.distance)
+    );
+  };
+  
+  const handleRemoveAlert = (idToRemove: string) => {
+    setAlertDistances(prev => prev.filter(a => a.id !== idToRemove));
+  };
+
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-[1000] p-4">
@@ -74,23 +97,34 @@ const Controls: React.FC<ControlsProps> = ({
           {getStatusMessage()}
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="space-y-4 mb-4">
+            {/* Alert Distances Control */}
             <div className="w-full">
-              <label htmlFor="radius" className="block text-sm font-medium text-gray-300 mb-1 text-center">
-                Alert Radius: <span className="font-bold text-teal-400">{radius}m</span>
+              <label className="block text-sm font-medium text-gray-300 mb-2 text-center">
+                Alert Distances (editable)
               </label>
-              <input
-                id="radius"
-                type="range"
-                min="100"
-                max="5000"
-                step="100"
-                value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
-                className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg accent-teal-500"
-                disabled={isTracking || !hasDestination}
-              />
+              <div className="bg-gray-900/50 p-3 rounded-lg flex flex-wrap items-center justify-center gap-2">
+                {alertDistances.map(alert => (
+                    <AlertPill 
+                      key={alert.id}
+                      alert={alert}
+                      onUpdate={handleUpdateAlert}
+                      onRemove={handleRemoveAlert}
+                      isTracking={isTracking}
+                    />
+                ))}
+                <button 
+                  onClick={handleAddAlert} 
+                  disabled={isTracking || !hasDestination} 
+                  className="bg-gray-600 hover:bg-gray-500 rounded-full w-7 h-7 flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Add new alert distance"
+                >
+                    <IconPlus className="w-5 h-5" />
+                </button>
+              </div>
             </div>
+
+            {/* Alert Options Control */}
             <div className="grid grid-cols-3 gap-3">
                 <button onClick={() => toggleAlertOption('sound')} className={`flex items-center justify-center p-3 rounded-full text-sm transition-all duration-200 border-2 active:scale-110 ${alertOptions.sound ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`} disabled={isTracking} aria-label="Toggle sound alert"><IconBell className="w-6 h-6"/></button>
                 <button onClick={() => toggleAlertOption('vibration')} className={`flex items-center justify-center p-3 rounded-full text-sm transition-all duration-200 border-2 active:scale-110 ${alertOptions.vibration ? 'bg-teal-500 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`} disabled={isTracking} aria-label="Toggle vibration alert"><IconVibration className="w-6 h-6"/></button>

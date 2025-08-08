@@ -6,10 +6,21 @@ export type AlertOptions = {
   voice: boolean;
 };
 
+export type Alert = {
+  id: string;
+  distance: number;
+  triggered: boolean;
+};
+
+export type AlertDistance = {
+  id: string;
+  distance: number;
+};
+
 export type MapTheme = 'dark' | 'light' | 'satellite';
 
 export type Favorite = {
-  id: string;
+  id:string;
   name: string;
   position: LatLngTuple;
 };
