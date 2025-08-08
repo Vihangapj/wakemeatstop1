@@ -49,25 +49,21 @@ const FloatingMapButtons: React.FC<FloatingMapButtonsProps> = ({ onCenterOnUser,
 
     return (
         <>
-            <div className="leaflet-top leaflet-right">
-                <div ref={topControlsRef} className="leaflet-control mt-20 mr-2 flex flex-col gap-2">
-                    <FloatingButton onClick={onToggleSettings} aria-label="Open settings">
-                        <IconSettings className="w-6 h-6" />
-                    </FloatingButton>
-                    <FloatingButton onClick={onCenterOnUser} disabled={!isUserLocationAvailable} aria-label="Center on my location">
-                        <IconCrosshairs className="w-6 h-6" />
-                    </FloatingButton>
-                </div>
+            <div ref={topControlsRef} className="absolute top-20 right-4 z-[1010] flex flex-col gap-2">
+                <FloatingButton onClick={onToggleSettings} aria-label="Open settings">
+                    <IconSettings className="w-6 h-6" />
+                </FloatingButton>
+                <FloatingButton onClick={onCenterOnUser} disabled={!isUserLocationAvailable} aria-label="Center on my location">
+                    <IconCrosshairs className="w-6 h-6" />
+                </FloatingButton>
             </div>
-            <div className="leaflet-bottom leaflet-right">
-                 <div ref={bottomControlsRef} className="leaflet-control mb-4 mr-2 flex flex-col gap-2">
-                    <FloatingButton onClick={zoomIn} aria-label="Zoom in">
-                       <IconPlus className="w-6 h-6" />
-                    </FloatingButton>
-                    <FloatingButton onClick={zoomOut} aria-label="Zoom out">
-                       <IconMinus className="w-6 h-6" />
-                    </FloatingButton>
-                 </div>
+            <div ref={bottomControlsRef} className="absolute bottom-[14.5rem] right-4 z-[1010] flex flex-col gap-2">
+                <FloatingButton onClick={zoomIn} aria-label="Zoom in">
+                    <IconPlus className="w-6 h-6" />
+                </FloatingButton>
+                <FloatingButton onClick={zoomOut} aria-label="Zoom out">
+                    <IconMinus className="w-6 h-6" />
+                </FloatingButton>
             </div>
         </>
     );
