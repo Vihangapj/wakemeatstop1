@@ -16,6 +16,7 @@
         .leaflet-container {
             height: 100%;
             width: 100%;
+            background-color: #1f2937; /* bg-gray-800 to avoid flash of white on load */
         }
         /* Style for range input track */
         input[type=range].accent-teal-500::-webkit-slider-runnable-track {
@@ -43,14 +44,89 @@
           to { opacity: 1; }
         }
         .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+
+        /* --- Custom Leaflet Controls --- */
+        .leaflet-top.leaflet-right {
+            margin-top: 90px !important; /* Pushes the zoom control block below the header */
+        }
+
+        .leaflet-control-zoom {
+            border: none !important;
+            margin-right: 16px !important;
+            box-shadow: none !important;
+        }
+
+        .leaflet-bar a, .leaflet-bar a:hover {
+            background-color: rgba(31, 41, 55, 0.9) !important; /* bg-gray-800/90 */
+            color: white !important;
+            width: 44px !important;
+            height: 44px !important;
+            line-height: 44px !important;
+            border: 1px solid rgb(75 85 99) !important; /* border-gray-600 */
+            border-bottom: none !important;
+            transition: background-color 0.2s ease-in-out;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .leaflet-bar a:hover {
+            background-color: rgb(55 65 81) !important; /* hover:bg-gray-700 */
+        }
+
+        .leaflet-control-zoom-in {
+            border-radius: 0.5rem 0.5rem 0 0 !important;
+        }
+
+        .leaflet-control-zoom-out {
+            border-radius: 0 !important;
+            border-bottom: 1px solid rgb(75 85 99) !important; /* Creates separator line */
+        }
+        
+        .my-location-control {
+            position: absolute;
+            z-index: 1000;
+            /* Positioned precisely under the zoom controls: 90px margin + 2*44px button height = 178px */
+            top: 178px; 
+            right: 16px;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .my-location-button {
+            background-color: rgba(31, 41, 55, 0.9) !important;
+            backdrop-filter: blur(8px) !important;
+            -webkit-backdrop-filter: blur(8px) !important;
+            color: white !important;
+            width: 44px !important;
+            height: 44px !important;
+            line-height: 44px !important;
+            border: 1px solid rgb(75 85 99) !important;
+            border-top: none !important; /* Top border is provided by zoom-out button now */
+            border-radius: 0 0 0.5rem 0.5rem !important;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .my-location-button:hover {
+            background-color: rgb(55 65 81) !important;
+        }
+        .my-location-button:disabled {
+            background-color: rgba(55, 65, 81, 0.5) !important;
+            color: rgb(156 163 175) !important;
+            cursor: not-allowed;
+        }
+
+        .leaflet-bar a.leaflet-disabled {
+            background-color: rgba(55, 65, 81, 0.5) !important;
+            color: rgb(156 163 175) !important; /* text-gray-400 */
+            cursor: not-allowed;
+        }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^18.2.0/",
-    "react": "https://esm.sh/react@^18.2.0",
-    "react-dom/": "https://esm.sh/react-dom@^18.2.0/",
-    "react-leaflet": "https://esm.sh/react-leaflet@^4.2.1",
+    "react/": "https://esm.sh/react@^19.1.1/",
+    "react": "https://esm.sh/react@^19.1.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "react-leaflet": "https://esm.sh/react-leaflet@^5.0.0",
     "leaflet": "https://esm.sh/leaflet@^1.9.4",
     "@google/genai": "https://esm.sh/@google/genai"
   }

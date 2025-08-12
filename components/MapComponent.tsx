@@ -1,12 +1,12 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Circle, useMapEvents, Polyline } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Circle, useMapEvents, Polyline, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
-import { LatLngTuple, MapTheme, AlertDistance } from '../types';
+import { LatLngTuple, MapTheme } from '../types';
 import IconTarget from './icons/IconTarget';
 import IconUserLocation from './icons/IconUserLocation';
 import { renderToStaticMarkup } from 'react-dom/server';
 import MapAnimator from './MapAnimator';
-import FloatingMapButtons from './FloatingMapButtons';
+import IconCrosshairs from './icons/IconCrosshairs';
 
 interface MapThemeConfig {
   url: string;
@@ -32,14 +32,9 @@ interface MapComponentProps {
   userPosition: LatLngTuple | null;
   destination: LatLngTuple | null;
   setDestination: (position: LatLngTuple) => void;
-  alertDistances: AlertDistance[];
+  alertRadiuses: number[];
   isTracking: boolean;
   mapTheme: MapTheme;
-  panRequest: LatLngTuple | null;
-  setPanRequest: (position: LatLngTuple | null) => void;
-  onToggleSettings: () => void;
-  onCenterOnUser: () => void;
-  isUserLocationAvailable: boolean;
 }
 
 const userIconSvg = renderToStaticMarkup(<div className="relative flex items-center justify-center"><div className="absolute w-6 h-6 bg-blue-500 rounded-full animate-ping opacity-75"></div><IconUserLocation className="relative w-8 h-8 text-blue-400 drop-shadow-lg" /></div>);
@@ -69,26 +64,56 @@ const MapClickHandler: React.FC<{ setDestination: (pos: LatLngTuple) => void, is
   return null;
 };
 
-const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, setDestination, alertDistances, isTracking, mapTheme, panRequest, setPanRequest, onToggleSettings, onCenterOnUser, isUserLocationAvailable }) => {
+const ChangeZoomControlPosition: React.FC = () => {
+    const map = useMap();
+    useEffect(() => {
+        if (map.zoomControl) {
+            map.zoomControl.setPosition('topright');
+        }
+    }, [map]);
+    return null;
+}
+
+const MyLocationButton: React.FC<{ userPosition: LatLngTuple | null }> = ({ userPosition }) => {
+    const map = useMap();
+
+    const handleCenterView = () => {
+        if (userPosition) {
+            map.flyTo(userPosition, Math.max(map.getZoom(), 15));
+        }
+    };
+
+    return (
+        <div className="leaflet-control my-location-control">
+            <button
+                onClick={handleCenterView}
+                disabled={!userPosition}
+                className="my-location-button flex items-center justify-center"
+                title="My Location"
+                aria-label="Center map on your location"
+            >
+                <IconCrosshairs className="w-6 h-6" />
+            </button>
+        </div>
+    );
+};
+
+
+const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, setDestination, alertRadiuses, isTracking, mapTheme }) => {
   const defaultCenter: LatLngTuple = [51.505, -0.09];
   const center = userPosition || defaultCenter;
   const themeConfig = mapThemes[mapTheme];
 
   return (
     <MapContainer center={center} zoom={13} scrollWheelZoom={true} zoomControl={false}>
+      <ZoomControl position="topright" />
       <TileLayer
         key={mapTheme} // Add key to force re-render on theme change
         url={themeConfig.url}
         attribution={themeConfig.attribution}
       />
       <MapClickHandler setDestination={setDestination} isTracking={isTracking} />
-      <MapAnimator 
-        destination={destination} 
-        userPosition={userPosition} 
-        isTracking={isTracking}
-        panRequest={panRequest}
-        setPanRequest={setPanRequest}
-      />
+      <MapAnimator destination={destination} userPosition={userPosition} isTracking={isTracking} />
       
       {userPosition && (
         <Marker position={userPosition} icon={userIcon} />
@@ -97,17 +122,16 @@ const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, 
       {destination && (
         <>
           <Marker position={destination} icon={destinationIcon} />
-          {alertDistances.map(alert => (
+          {alertRadiuses.map(radius => (
             <Circle
-              key={alert.id}
+              key={radius}
               center={destination}
               pathOptions={{
                 color: isTracking ? '#0d9488' : '#f43f5e',
                 fillColor: isTracking ? '#14b8a6' : '#ef4444',
                 fillOpacity: 0.15,
-                weight: 2,
               }}
-              radius={alert.distance}
+              radius={radius}
             />
           ))}
         </>
@@ -119,11 +143,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, 
             positions={[userPosition, destination]}
         />
       )}
-      <FloatingMapButtons 
-        onCenterOnUser={onCenterOnUser}
-        onToggleSettings={onToggleSettings}
-        isUserLocationAvailable={isUserLocationAvailable}
-      />
+      <MyLocationButton userPosition={userPosition} />
     </MapContainer>
   );
 };
