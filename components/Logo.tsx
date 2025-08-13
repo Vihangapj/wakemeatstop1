@@ -1,7 +1,7 @@
 import React from 'react';
 
 // Using a hosted URL for the provided logo image.
-const LOGO_URL = "https://cdn.glitch.global/6a80426c-3c8c-4158-9488-87d2a5a5146d/preloader-logo.png";
+const LOGO_URL = "https://github.com/Vihangapj/wakemeatstop1/blob/main/logo.png?raw=true";
 
 const Logo: React.FC<{ className?: string }> = ({ className }) => (
     <div className={className}>
