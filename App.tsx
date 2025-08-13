@@ -14,9 +14,11 @@ import { usePersistentState } from './hooks/usePersistentState';
 import { useWakeLock } from './hooks/useWakeLock';
 import { alertService } from './services/alertService';
 import LocationPermissionModal from './components/LocationPermissionModal';
+import Preloader from './components/Preloader';
 
 const App: React.FC = () => {
   // App state
+  const [isInitializing, setIsInitializing] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
   const [destination, setDestination] = useState<LatLngTuple | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
@@ -40,6 +42,15 @@ const App: React.FC = () => {
   // Hooks
   const { position: userPosition, speed, error: geolocationError } = useGeolocation(true, { enableHighAccuracy: highAccuracyGPS });
   useWakeLock(keepScreenOn && isTracking);
+
+  useEffect(() => {
+    // Simulate app loading time to show the preloader
+    const timer = setTimeout(() => {
+        setIsInitializing(false);
+    }, 2500); // Show preloader for 2.5 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const selectedRingtone = useMemo(() => {
     return ringtones.find(r => r.id === selectedRingtoneId) || ringtones[0];
@@ -137,6 +148,9 @@ const App: React.FC = () => {
     }
   }, [isTracking, userPosition, destination, alertRadiuses, speed, triggeredAlerts, alertOptions, selectedRingtone]);
 
+  if (isInitializing) {
+    return <Preloader />;
+  }
 
   if (showIntro) {
     return <IntroductionModal onDismiss={() => setShowIntro(false)} />;
