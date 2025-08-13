@@ -177,10 +177,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             </div>
           </div>
         </div>
-        
-        <footer className="flex-shrink-0 p-4 text-center text-xs text-gray-600 border-t border-gray-700">
-          <p>WakeMe@Stop v1.4</p>
-        </footer>
       </div>
     </div>
   );
