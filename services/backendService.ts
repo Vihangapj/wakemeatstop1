@@ -12,7 +12,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   doc,
   deleteDoc,
   updateDoc,
@@ -59,9 +58,11 @@ export const backendService = {
 
   getAnnouncements: async (): Promise<Announcement[]> => {
     const announcementsCol = collection(db, 'announcements');
-    const q = query(announcementsCol, orderBy('timestamp', 'desc'));
+    // Remove the orderBy clause to avoid needing a composite index.
+    // We will sort the results on the client-side.
+    const q = query(announcementsCol);
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => {
+    const announcements = snapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -70,6 +71,8 @@ export const backendService = {
         timestamp: (data.timestamp as Timestamp).toMillis(),
       } as Announcement;
     });
+    // Sort by timestamp in descending order (newest first)
+    return announcements.sort((a, b) => b.timestamp - a.timestamp);
   },
 
   addAnnouncement: async (message: string, type: AnnouncementType, position: LatLngTuple, user: User): Promise<Announcement> => {
