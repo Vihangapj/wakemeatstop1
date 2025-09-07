@@ -1,168 +1,135 @@
-import React, { useState, useMemo } from 'react';
-import { Announcement, AnnouncementType, User, LatLngTuple } from '../types';
-import IconX from './icons/IconX';
+import React, { useState, useEffect } from 'react';
+import { Announcement, AnnouncementType, LatLngTuple, User } from '../types';
+import { backendService } from '../services/backendService';
+import { calculateDistance } from '../utils/geo';
 import IconMegaphone from './icons/IconMegaphone';
-import IconPlus from './icons/IconPlus';
+import IconX from './icons/IconX';
 import IconThumbsUp from './icons/IconThumbsUp';
-import IconClock from './icons/IconClock';
-import IconAccident from './icons/IconAccident';
-import IconInfo from './icons/IconInfo';
+import IconPlus from './icons/IconPlus';
 
 interface AnnouncementsFeedProps {
   onClose: () => void;
-  announcements: Announcement[];
   currentUser: User | null;
-  onLoginRequest: () => void;
-  onCreateAnnouncement: (announcement: Omit<Announcement, 'id' | 'userId' | 'userName' | 'timestamp' | 'upvotes'>) => void;
-  onUpvote: (id: string) => void;
   userPosition: LatLngTuple | null;
 }
 
-const announcementTypes: { id: AnnouncementType; label: string, icon: React.FC<any> }[] = [
-    { id: 'delay', label: 'Delay', icon: IconClock },
-    { id: 'accident', label: 'Accident', icon: IconAccident },
-    { id: 'info', label: 'Info', icon: IconInfo },
-];
+const AnnouncementItem: React.FC<{ announcement: Announcement, userPosition: LatLngTuple | null, onUpvote: (id: string) => void }> = ({ announcement, userPosition, onUpvote }) => {
+    const distance = userPosition ? calculateDistance(userPosition[0], userPosition[1], announcement.position[0], announcement.position[1]) : null;
+    const timeAgo = new Date(announcement.timestamp).toLocaleString();
 
-const TimeAgo: React.FC<{ timestamp: number }> = ({ timestamp }) => {
-    const now = Date.now();
-    const seconds = Math.floor((now - timestamp) / 1000);
-    
-    if (seconds < 60) return <span>{seconds}s ago</span>;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return <span>{minutes}m ago</span>;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return <span>{hours}h ago</span>;
-    const days = Math.floor(hours / 24);
-    return <span>{days}d ago</span>;
-}
+    const typeClasses: Record<AnnouncementType, {bg: string, text: string, border: string}> = {
+        delay: { bg: 'bg-orange-500/10', text: 'text-orange-300', border: 'border-orange-500/30' },
+        accident: { bg: 'bg-red-500/10', text: 'text-red-300', border: 'border-red-500/30' },
+        info: { bg: 'bg-sky-500/10', text: 'text-sky-300', border: 'border-sky-500/30' },
+    }
+    const classes = typeClasses[announcement.type] || typeClasses.info;
 
-const AnnouncementsFeed: React.FC<AnnouncementsFeedProps> = ({
-  onClose, announcements, currentUser, onLoginRequest, onCreateAnnouncement, onUpvote, userPosition
-}) => {
-  const [view, setView] = useState<'list' | 'create'>('list');
-  const [message, setMessage] = useState('');
-  const [type, setType] = useState<AnnouncementType>('info');
+    return (
+        <div className={`bg-gray-800/50 p-4 rounded-lg border ${classes.border}`}>
+            <div className="flex justify-between items-start text-sm mb-2">
+                <div className="font-bold text-white">{announcement.userName}</div>
+                <div className={`font-semibold px-2 py-0.5 rounded-full text-xs ${classes.bg} ${classes.text}`}>{announcement.type}</div>
+            </div>
+            <p className="text-gray-200 mb-3">{announcement.message}</p>
+            <div className="flex justify-between items-center text-xs text-gray-400">
+                <span>{timeAgo}</span>
+                <div className="flex items-center gap-4">
+                    {distance !== null && <span className="font-medium">{(distance / 1000).toFixed(1)} km away</span>}
+                    <button onClick={() => onUpvote(announcement.id)} className="flex items-center gap-1.5 hover:text-teal-400 transition-colors">
+                        <IconThumbsUp className="w-4 h-4" />
+                        <span className="font-bold">{announcement.upvotes}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AnnouncementsFeed: React.FC<AnnouncementsFeedProps> = ({ onClose, currentUser, userPosition }) => {
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const sortedAnnouncements = useMemo(() => {
-    return [...announcements].sort((a, b) => b.timestamp - a.timestamp);
-  }, [announcements]);
+  const [newMessage, setNewMessage] = useState('');
+  const [newMessageType, setNewMessageType] = useState<AnnouncementType>('info');
 
-  const handleCreateClick = () => {
-    if (!currentUser) {
-      onLoginRequest();
-    } else {
-      setView('create');
+  const fetchAnnouncements = async () => {
+    setIsLoading(true);
+    try {
+      const data = await backendService.getAnnouncements();
+      setAnnouncements(data);
+    } catch (e) {
+      setError('Could not load announcements.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleSubmit = () => {
-    if (!message.trim()) {
-        setError('Please enter a message for your announcement.');
-        return;
-    }
-    if (!userPosition) {
-        setError('Could not determine your current location. Please try again.');
-        return;
-    }
-    onCreateAnnouncement({ message: message.trim(), type, position: userPosition });
-    setMessage('');
-    setType('info');
-    setError(null);
-    setView('list');
-  }
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
 
-  const getIconForType = (type: AnnouncementType) => {
-    const config = announcementTypes.find(t => t.id === type);
-    return config ? <config.icon className="w-5 h-5" /> : <IconInfo className="w-5 h-5"/>;
-  }
+  const handleUpvote = async (id: string) => {
+    try {
+      const updated = await backendService.upvoteAnnouncement(id);
+      setAnnouncements(announcements.map(a => a.id === id ? updated : a));
+    } catch (e) {
+      console.error("Upvote failed", e);
+    }
+  };
+
+  const handlePost = async () => {
+    if (!newMessage.trim() || !currentUser || !userPosition) return;
+    try {
+        const newAnnouncement = await backendService.addAnnouncement(newMessage, newMessageType, userPosition, currentUser);
+        setAnnouncements([newAnnouncement, ...announcements]);
+        setNewMessage('');
+    } catch (e) {
+        console.error("Failed to post announcement", e);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[3000] bg-gray-900 animate-slide-in-from-right flex flex-col">
       <div className="bg-gray-800/80 backdrop-blur-md shadow-2xl w-full flex flex-col h-full">
         <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-700">
           <h2 className="flex items-center gap-3 text-xl font-bold text-white">
-            <IconMegaphone className="w-6 h-6 text-yellow-400"/>
+            <IconMegaphone className="w-6 h-6 text-yellow-400" />
             Community Alerts
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-2 -m-2" aria-label="Close">
-            <IconX className="w-6 h-6" />
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-2 -m-2" aria-label="Close"><IconX className="w-6 h-6" /></button>
         </header>
 
-        {view === 'list' ? (
-          <>
-            <div className="p-4 flex-grow overflow-y-auto">
-              {sortedAnnouncements.length > 0 ? (
-                <div className="space-y-4">
-                  {sortedAnnouncements.map(ann => (
-                    <div key={ann.id} className="bg-gray-700/60 rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-300">
-                          {getIconForType(ann.type)}
-                          <span>{ann.userName}</span>
-                        </div>
-                        <span className="text-xs text-gray-400"><TimeAgo timestamp={ann.timestamp} /></span>
-                      </div>
-                      <p className="my-3 text-gray-100">{ann.message}</p>
-                      <div className="flex items-center">
-                        <button onClick={() => onUpvote(ann.id)} className="flex items-center gap-2 text-sm text-teal-400 hover:text-teal-300 font-semibold transition-colors">
-                          <IconThumbsUp className="w-4 h-4" />
-                          <span>{ann.upvotes}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-10 px-4">
-                  <p className="text-gray-400">No community alerts in this area yet.</p>
-                  <p className="text-sm text-gray-500 mt-1">Be the first to post one!</p>
-                </div>
-              )}
-            </div>
-            <div className="p-4 border-t border-gray-700">
-              <button onClick={handleCreateClick} className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                <IconPlus className="w-6 h-6" />
-                New Announcement
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="p-6 space-y-6">
-            <div>
-                <label htmlFor="announcement-message" className="block text-sm font-medium text-gray-300 mb-2">Your Announcement</label>
+        <div className="p-4 space-y-4 overflow-y-auto flex-grow">
+            {isLoading && <p className="text-center text-gray-400">Loading alerts...</p>}
+            {error && <p className="text-center text-red-400">{error}</p>}
+            {!isLoading && announcements.map(announcement => (
+                <AnnouncementItem key={announcement.id} announcement={announcement} userPosition={userPosition} onUpvote={handleUpvote}/>
+            ))}
+             {!isLoading && announcements.length === 0 && <p className="text-center text-gray-500 pt-8">No community alerts right now.</p>}
+        </div>
+
+        {currentUser && userPosition && (
+            <div className="flex-shrink-0 p-4 border-t border-gray-700 bg-gray-900/50">
                 <textarea
-                    id="announcement-message"
-                    rows={4}
-                    value={message}
-                    onChange={e => setMessage(e.target.value)}
-                    placeholder="e.g., 'Bus #42 is running 15 mins late...'"
-                    className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-teal-500"
+                    value={newMessage}
+                    onChange={e => setNewMessage(e.target.value)}
+                    placeholder="Share an update with the community..."
+                    rows={3}
+                    className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-teal-500 transition-colors mb-3"
                 ></textarea>
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
-                <div className="grid grid-cols-3 gap-3">
-                    {announcementTypes.map(({ id, label, icon: Icon }) => (
-                        <button key={id} onClick={() => setType(id)} className={`flex flex-col items-center justify-center gap-2 p-3 rounded-lg text-sm font-semibold transition-all duration-200 border-2 ${type === id ? 'bg-teal-500/20 border-teal-400 text-white' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}>
-                            <Icon className="w-6 h-6" />
-                            {label}
-                        </button>
-                    ))}
+                <div className="flex justify-between items-center">
+                    <div className="flex gap-2">
+                        {(['info', 'delay', 'accident'] as AnnouncementType[]).map(type => (
+                             <button key={type} onClick={() => setNewMessageType(type)} className={`px-3 py-1.5 rounded-full text-sm font-semibold capitalize transition-colors ${newMessageType === type ? 'bg-teal-500 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-200'}`}>
+                                 {type}
+                             </button>
+                        ))}
+                    </div>
+                    <button onClick={handlePost} disabled={!newMessage.trim()} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-3 rounded-lg text-sm transition-transform active:scale-95 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                        <IconPlus className="w-5 h-5"/> Post
+                    </button>
                 </div>
             </div>
-            {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-            <div className="flex gap-3">
-                <button onClick={() => setView('list')} className="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                    Cancel
-                </button>
-                <button onClick={handleSubmit} className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                    Post
-                </button>
-            </div>
-          </div>
         )}
       </div>
     </div>

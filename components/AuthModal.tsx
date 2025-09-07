@@ -1,80 +1,98 @@
 import React, { useState } from 'react';
 import { User } from '../types';
+import { backendService } from '../services/backendService';
 import IconUser from './icons/IconUser';
 import IconX from './icons/IconX';
 
 interface AuthModalProps {
   onClose: () => void;
-  onLogin: (name: string) => void;
-  onLogout: () => void;
-  currentUser: User | null;
+  onLoginSuccess: (user: User) => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin, onLogout, currentUser }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess }) => {
+  const [isLoginView, setIsLoginView] = useState(true);
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = () => {
-    if (!name.trim()) {
-      setError('Please enter a name.');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !password.trim()) {
+      setError('Please fill in all fields.');
       return;
     }
-    onLogin(name.trim());
+    setIsLoading(true);
+    setError(null);
+    try {
+      const user = isLoginView
+        ? await backendService.login(name, password)
+        : await backendService.register(name, password);
+      onLoginSuccess(user);
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
-  const handleLogout = () => {
-    onLogout();
-    onClose();
-  }
 
   return (
     <div className="fixed inset-0 z-[3000] bg-gray-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-700">
         <header className="flex items-center justify-between p-4 border-b border-gray-700">
           <h2 className="flex items-center gap-3 text-xl font-bold text-white">
-            <IconUser className="w-6 h-6 text-teal-400"/>
-            {currentUser ? 'Your Profile' : 'Join the Community'}
+            <IconUser className="w-6 h-6 text-teal-400" />
+            {isLoginView ? 'Login' : 'Register'}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close"><IconX className="w-6 h-6" /></button>
         </header>
 
-        <div className="p-6">
-          {currentUser ? (
-            <div className="text-center">
-                <p className="text-gray-300">You are logged in as:</p>
-                <p className="text-2xl font-bold text-white my-4">{currentUser.name}</p>
-                <button
-                    onClick={handleLogout}
-                    className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                >
-                    Log Out
-                </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-                <p className="text-center text-gray-300 text-sm">Create a profile to post alerts and help others.</p>
-                <div>
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">Choose a display name</label>
-                    <input
-                        id="username"
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                        placeholder="Your Name"
-                        className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-teal-500"
-                    />
-                </div>
-                {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-                <button
-                    onClick={handleLogin}
-                    className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                >
-                    Continue
-                </button>
-            </div>
-          )}
-        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">Username</label>
+            <input
+              id="username" type="text" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., TransitFan"
+              className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-teal-500"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+            <input
+              id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-teal-500"
+              disabled={isLoading}
+            />
+          </div>
+
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+
+          <button
+            type="submit" disabled={isLoading}
+            className="w-full flex justify-center items-center bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-wait"
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+              </>
+            ) : (isLoginView ? 'Login' : 'Create Account')}
+          </button>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setIsLoginView(!isLoginView)}
+              className="text-sm text-teal-400 hover:text-teal-300"
+            >
+              {isLoginView ? 'Need an account? Register' : 'Already have an account? Login'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

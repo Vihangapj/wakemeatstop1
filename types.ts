@@ -47,10 +47,15 @@ export type User = {
   name: string;
 };
 
+// Represents a user account stored in the simulated database
+export type UserCredentials = User & {
+  password: string;
+};
+
 export type AnnouncementType = 'delay' | 'accident' | 'info';
 
 export type Announcement = {
-  id: string;
+  id:string;
   userId: string;
   userName: string;
   position: LatLngTuple;
