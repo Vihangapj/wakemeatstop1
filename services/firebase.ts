@@ -23,13 +23,13 @@ import { getFirestore } from 'firebase/firestore';
 // =================================================================================
 
 const firebaseConfig = {
-  // PASTE YOUR FIREBASE CONFIG OBJECT HERE
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyB658vYUrbFKUMr2xbfNZwkCjgduaMXyjc",
+  authDomain: "wakemeatstop.firebaseapp.com",
+  projectId: "wakemeatstop",
+  storageBucket: "wakemeatstop.firebasestorage.app",
+  messagingSenderId: "213650466318",
+  appId: "1:213650466318:web:342c52b46f6b46e5de3e5f",
+  measurementId: "G-TZ84GBG6ZZ"
 };
 
 
