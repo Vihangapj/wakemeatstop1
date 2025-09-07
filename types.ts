@@ -41,3 +41,21 @@ export type TransitAlarm = {
     leadTime: number; // minutes
     enabled: boolean;
 };
+
+export type User = {
+  id: string;
+  name: string;
+};
+
+export type AnnouncementType = 'delay' | 'accident' | 'info';
+
+export type Announcement = {
+  id: string;
+  userId: string;
+  userName: string;
+  position: LatLngTuple;
+  message: string;
+  type: AnnouncementType;
+  timestamp: number; // Unix timestamp
+  upvotes: number;
+};

@@ -1,13 +1,16 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents, Polyline, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
-import { LatLngTuple, MapTheme, Waypoint, WaypointType } from '../types';
+import { LatLngTuple, MapTheme, Waypoint, WaypointType, Announcement, AnnouncementType } from '../types';
 import IconTarget from './icons/IconTarget';
 import IconUserLocation from './icons/IconUserLocation';
 import { renderToStaticMarkup } from 'react-dom/server';
 import MapAnimator from './MapAnimator';
 import IconCrosshairs from './icons/IconCrosshairs';
 import IconMapPin from './icons/IconMapPin';
+import IconClock from './icons/IconClock';
+import IconAccident from './icons/IconAccident';
+import IconInfo from './icons/IconInfo';
 
 interface MapThemeConfig {
   url: string;
@@ -33,6 +36,7 @@ interface MapComponentProps {
   userPosition: LatLngTuple | null;
   activeWaypoint: Waypoint | null;
   waypoints: Waypoint[];
+  announcements: Announcement[];
   onMapClick: (position: LatLngTuple) => void;
   onWaypointClick: (waypoint: Waypoint) => void;
   alertRadiuses: number[];
@@ -69,6 +73,29 @@ const getWaypointIcon = (type: WaypointType) => {
         className: '',
         iconSize: [32, 32],
         iconAnchor: [16, 32],
+    });
+}
+
+const getAnnouncementIcon = (type: AnnouncementType) => {
+    const iconWrapperClass = "bg-gray-800/80 backdrop-blur-sm rounded-full p-1.5 border border-gray-600 shadow-lg";
+    let icon;
+    switch(type) {
+        case 'delay':
+            icon = renderToStaticMarkup(<div className={iconWrapperClass}><IconClock className="w-5 h-5 text-orange-400" /></div>);
+            break;
+        case 'accident':
+            icon = renderToStaticMarkup(<div className={iconWrapperClass}><IconAccident className="w-5 h-5 text-red-500" /></div>);
+            break;
+        case 'info':
+        default:
+            icon = renderToStaticMarkup(<div className={iconWrapperClass}><IconInfo className="w-5 h-5 text-sky-400" /></div>);
+            break;
+    }
+    return new L.DivIcon({
+        html: icon,
+        className: '',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
     });
 }
 
@@ -109,7 +136,7 @@ const MyLocationButton: React.FC<{ userPosition: LatLngTuple | null }> = ({ user
 };
 
 
-const MapComponent: React.FC<MapComponentProps> = ({ userPosition, activeWaypoint, waypoints, onMapClick, onWaypointClick, alertRadiuses, isTracking, mapTheme }) => {
+const MapComponent: React.FC<MapComponentProps> = ({ userPosition, activeWaypoint, waypoints, announcements, onMapClick, onWaypointClick, alertRadiuses, isTracking, mapTheme }) => {
   const defaultCenter: LatLngTuple = [51.505, -0.09];
   const center = userPosition || defaultCenter;
   const themeConfig = mapThemes[mapTheme];
@@ -128,6 +155,15 @@ const MapComponent: React.FC<MapComponentProps> = ({ userPosition, activeWaypoin
       {userPosition && (
         <Marker position={userPosition} icon={userIcon} />
       )}
+      
+      {announcements.map(announcement => (
+        <Marker
+            key={announcement.id}
+            position={announcement.position}
+            icon={getAnnouncementIcon(announcement.type)}
+        >
+        </Marker>
+      ))}
 
       {waypoints.map(waypoint => waypoint.id !== activeWaypoint?.id && (
         <Marker 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { LatLngTuple, MapTheme, AlertOptions, Waypoint, Ringtone, WeatherData, TransitAlarm } from './types';
+import { LatLngTuple, MapTheme, AlertOptions, Waypoint, Ringtone, WeatherData, TransitAlarm, User, Announcement } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { calculateDistance } from './utils/geo';
 import { ringtones } from './data/ringtones';
@@ -13,11 +13,29 @@ import FindDestinationModal from './components/AIAssistantModal';
 import IntroductionModal from './components/IntroductionModal';
 import EditWaypointModal from './components/EditWaypointModal';
 import TransitAlarmModal from './components/TransitAlarmModal';
+import AnnouncementsFeed from './components/AnnouncementsFeed';
+import AuthModal from './components/AuthModal';
 import { usePersistentState } from './hooks/usePersistentState';
 import { useWakeLock } from './hooks/useWakeLock';
 import { alertService } from './services/alertService';
 import LocationPermissionModal from './components/LocationPermissionModal';
 import Preloader from './components/Preloader';
+
+// Dummy data for announcements
+const initialAnnouncements: Announcement[] = [
+    {
+        id: '1', userId: 'system', userName: 'Transit Authority',
+        position: [51.515, -0.09], type: 'delay',
+        message: 'Central line experiencing minor delays due to signal failure at Bank station.',
+        timestamp: Date.now() - 3600000, upvotes: 12
+    },
+    {
+        id: '2', userId: 'user123', userName: 'Sarah J.',
+        position: [51.500, -0.10], type: 'accident',
+        message: 'Road closure on London Bridge due to an accident. Buses are being diverted.',
+        timestamp: Date.now() - 1800000, upvotes: 25
+    }
+];
 
 const App: React.FC = () => {
   // App state
@@ -30,6 +48,8 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isFindDestinationOpen, setIsFindDestinationOpen] = useState<boolean>(false);
   const [isLocationPermissionModalOpen, setLocationPermissionModalOpen] = useState(false);
+  const [isAnnouncementsFeedOpen, setAnnouncementsFeedOpen] = useState(false);
+  const [isAuthModalOpen, setAuthModalOpen] = useState(false);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [triggeredAlarm, setTriggeredAlarm] = useState<TransitAlarm | null>(null);
 
@@ -47,6 +67,8 @@ const App: React.FC = () => {
   const [waypoints, setWaypoints] = usePersistentState<Waypoint[]>('wakeme_waypoints', []);
   const [selectedRingtoneId, setSelectedRingtoneId] = usePersistentState<string>('wakeme_ringtoneId', 'alarm-clock');
   const [alarms, setAlarms] = usePersistentState<TransitAlarm[]>('wakeme_alarms', []);
+  const [currentUser, setCurrentUser] = usePersistentState<User | null>('wakeme_currentUser', null);
+  const [announcements, setAnnouncements] = usePersistentState<Announcement[]>('wakeme_announcements', initialAnnouncements);
 
   // Hooks
   const { position: userPosition, speed, error: geolocationError } = useGeolocation(true, { enableHighAccuracy: highAccuracyGPS });
@@ -130,6 +152,32 @@ const App: React.FC = () => {
     setWaypoints(prev => prev.filter(wp => wp.id !== id));
     if(activeWaypoint?.id === id) handleSelectWaypoint(null);
   }, [setWaypoints, activeWaypoint, handleSelectWaypoint]);
+  
+  const handleLogin = (name: string) => {
+    setCurrentUser({ id: `user_${Date.now()}`, name });
+    setAuthModalOpen(false);
+  };
+  
+  const handleLogout = () => {
+    setCurrentUser(null);
+  };
+  
+  const handleCreateAnnouncement = (announcement: Omit<Announcement, 'id' | 'userId' | 'userName' | 'timestamp' | 'upvotes'>) => {
+    if (!currentUser) return;
+    const newAnnouncement: Announcement = {
+      ...announcement,
+      id: `ann_${Date.now()}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      timestamp: Date.now(),
+      upvotes: 0,
+    };
+    setAnnouncements(prev => [newAnnouncement, ...prev]);
+  };
+  
+  const handleUpvoteAnnouncement = (id: string) => {
+    setAnnouncements(prev => prev.map(ann => ann.id === id ? { ...ann, upvotes: ann.upvotes + 1 } : ann));
+  };
 
   useEffect(() => {
     if (isTracking && userPosition && activeWaypoint) {
@@ -168,12 +216,17 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen w-screen bg-gray-900 text-white font-sans overflow-hidden">
-      <Header onToggleSettings={() => setIsSettingsOpen(true)} />
+      <Header 
+        onToggleSettings={() => setIsSettingsOpen(true)}
+        onToggleAuth={() => setAuthModalOpen(true)}
+        currentUser={currentUser}
+      />
       <main className="relative h-full w-full">
         <MapComponent
             userPosition={userPosition}
             activeWaypoint={activeWaypoint}
             waypoints={waypoints}
+            announcements={announcements}
             onMapClick={(pos) => setWaypointToEdit({ position: pos })}
             onWaypointClick={handleSelectWaypoint}
             alertRadiuses={alertRadiuses}
@@ -195,6 +248,7 @@ const App: React.FC = () => {
         geolocationError={geolocationError}
         weatherData={weatherData}
         onOpenFindDestination={() => setIsFindDestinationOpen(true)}
+        onOpenAnnouncements={() => setAnnouncementsFeedOpen(true)}
         onOpenLocationPermissionInfo={() => setLocationPermissionModalOpen(true)}
       />
       {alertingRadius !== null && <AlertModal onDismiss={handleDismissAlert} alertOptions={alertOptions} ringtoneUrl={selectedRingtone.url} alertingRadius={alertingRadius} waypoint={activeWaypoint} />}
@@ -224,6 +278,30 @@ const App: React.FC = () => {
                 setIsFindDestinationOpen(false);
             }}
         />
+      )}
+      
+      {isAnnouncementsFeedOpen && (
+        <AnnouncementsFeed
+          onClose={() => setAnnouncementsFeedOpen(false)}
+          announcements={announcements}
+          currentUser={currentUser}
+          onLoginRequest={() => {
+            setAnnouncementsFeedOpen(false);
+            setAuthModalOpen(true);
+          }}
+          onCreateAnnouncement={handleCreateAnnouncement}
+          onUpvote={handleUpvoteAnnouncement}
+          userPosition={userPosition}
+        />
+      )}
+      
+      {isAuthModalOpen && (
+          <AuthModal
+            onClose={() => setAuthModalOpen(false)}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+            currentUser={currentUser}
+          />
       )}
 
       {waypointToEdit && (

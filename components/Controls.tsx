@@ -10,6 +10,7 @@ import IconPlay from './icons/IconPlay';
 import IconStop from './icons/IconStop';
 import WeatherDisplay from './WeatherDisplay';
 import IconX from './icons/IconX';
+import IconMegaphone from './icons/IconMegaphone';
 
 interface ControlsProps {
   alertRadiuses: number[];
@@ -25,6 +26,7 @@ interface ControlsProps {
   geolocationError: string | null;
   weatherData: WeatherData | null;
   onOpenFindDestination: () => void;
+  onOpenAnnouncements: () => void;
   onOpenLocationPermissionInfo: () => void;
 }
 
@@ -42,6 +44,7 @@ const Controls: React.FC<ControlsProps> = ({
   geolocationError,
   weatherData,
   onOpenFindDestination,
+  onOpenAnnouncements,
   onOpenLocationPermissionInfo,
 }) => {
   const [newRadius, setNewRadius] = useState<string>('500');
@@ -209,6 +212,9 @@ const Controls: React.FC<ControlsProps> = ({
                       <span>Start Tracking</span>
                   </>
               )}
+            </button>
+            <button onClick={onOpenAnnouncements} className="p-4 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all active:scale-95 flex-shrink-0" aria-label="Open Community Alerts">
+              <IconMegaphone className="w-6 h-6 text-yellow-400" />
             </button>
         </div>
 
