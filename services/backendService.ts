@@ -19,6 +19,7 @@ import {
   getDoc,
   Timestamp,
   GeoPoint,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User, Announcement, LatLngTuple, AnnouncementType, Waypoint } from '../types';
@@ -76,21 +77,28 @@ export const backendService = {
   },
 
   addAnnouncement: async (message: string, type: AnnouncementType, position: LatLngTuple, user: User): Promise<Announcement> => {
+    const clientTimestamp = Date.now(); // For optimistic UI update
     const newAnnouncementData = {
       userId: user.id,
       userName: user.name,
       position: new GeoPoint(position[0], position[1]),
       message,
       type,
-      timestamp: Timestamp.fromDate(new Date()),
+      timestamp: serverTimestamp(), // Use reliable server timestamp
       upvotes: 0,
     };
     const docRef = await addDoc(collection(db, 'announcements'), newAnnouncementData);
+    // Return a complete Announcement object for the UI, using the client timestamp.
+    // The actual server timestamp will be fetched on the next refresh.
     return {
-      ...newAnnouncementData,
       id: docRef.id,
-      position: position,
-      timestamp: newAnnouncementData.timestamp.toMillis(),
+      userId: user.id,
+      userName: user.name,
+      position,
+      message,
+      type,
+      timestamp: clientTimestamp,
+      upvotes: 0,
     };
   },
 
