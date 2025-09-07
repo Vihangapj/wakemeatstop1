@@ -7,9 +7,11 @@ import IconX from './icons/IconX';
 interface AuthModalProps {
   onClose: () => void;
   onLoginSuccess: (user: User) => void;
+  onLogout: () => void;
+  currentUser: User | null;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, onLogout, currentUser }) => {
   const [isLoginView, setIsLoginView] = useState(true);
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -35,6 +37,31 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess }) => {
       setIsLoading(false);
     }
   };
+
+  if (currentUser) {
+    return (
+      <div className="fixed inset-0 z-[3000] bg-gray-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-700">
+          <header className="flex items-center justify-between p-4 border-b border-gray-700">
+            <h2 className="flex items-center gap-3 text-xl font-bold text-white">
+              <IconUser className="w-6 h-6 text-teal-400" />
+              Profile
+            </h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close"><IconX className="w-6 h-6" /></button>
+          </header>
+          <div className="p-6 text-center">
+            <p className="text-gray-300 mb-6">Logged in as <span className="font-bold text-white">{currentUser.name}</span></p>
+            <button
+              onClick={onLogout}
+              className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[3000] bg-gray-900/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
@@ -86,7 +113,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess }) => {
           <div className="text-center">
             <button
               type="button"
-              onClick={() => setIsLoginView(!isLoginView)}
+              onClick={() => { setIsLoginView(!isLoginView); setError(null); }}
               className="text-sm text-teal-400 hover:text-teal-300"
             >
               {isLoginView ? 'Need an account? Register' : 'Already have an account? Login'}

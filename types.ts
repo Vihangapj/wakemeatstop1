@@ -1,4 +1,7 @@
-export type LatLngTuple = [number, number];
+import type { LatLngTuple } from 'leaflet';
+
+// Fix: Export `LatLngTuple` so it can be imported by other modules.
+export type { LatLngTuple };
 
 export type AlertOptions = {
   sound: boolean;
@@ -12,6 +15,7 @@ export type WaypointType = 'stop' | 'shop' | 'poi';
 
 export type Waypoint = {
   id: string;
+  userId: string;
   name: string;
   position: LatLngTuple;
   type: WaypointType;

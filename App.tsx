@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LatLngTuple, Waypoint, AlertOptions, MapTheme, WeatherData, TransitAlarm, User, Announcement } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { usePersistentState } from './hooks/usePersistentState';
@@ -27,9 +27,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showIntro, setShowIntro] = usePersistentState('showIntro', true);
   
-  // App State
-  const [waypoints, setWaypoints] = usePersistentState<Waypoint[]>('waypoints', []);
-  const [activeWaypoint, setActiveWaypoint] = usePersistentState<Waypoint | null>('activeWaypoint', null);
+  // App State - User Agnostic
   const [alertRadiuses, setAlertRadiuses] = usePersistentState<number[]>('alertRadiuses', [500, 1000]);
   const [alertOptions, setAlertOptions] = usePersistentState<AlertOptions>('alertOptions', { sound: true, vibration: true, voice: false });
   const [selectedRingtoneId, setSelectedRingtoneId] = usePersistentState('selectedRingtoneId', ringtones[0].id);
@@ -39,13 +37,16 @@ function App() {
   const [alarms, setAlarms] = usePersistentState<TransitAlarm[]>('alarms', []);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
+  // App State - User Specific
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  const [activeWaypoint, setActiveWaypoint] = useState<Waypoint | null>(null);
+  const [currentUser, setCurrentUser] = usePersistentState<User | null>('currentUser', null);
+
+  // Live Tracking State
   const [isTracking, setIsTracking] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
   const [eta, setEta] = useState<string | null>(null);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-
-  // User State
-  const [currentUser, setCurrentUser] = usePersistentState<User | null>('currentUser', null);
 
   // UI State
   const [alertingRadius, setAlertingRadius] = useState<number | null>(null);
@@ -58,7 +59,6 @@ function App() {
   const [isLocationInfoOpen, setIsLocationInfoOpen] = useState(false);
   const [waypointToEdit, setWaypointToEdit] = useState<(Partial<Waypoint> & { position: LatLngTuple }) | null>(null);
 
-
   // Hooks
   const { position: userPosition, speed, error: geolocationError } = useGeolocation(isTracking || showIntro === false, { enableHighAccuracy: highAccuracyGPS });
   useWakeLock(isTracking && keepScreenOn);
@@ -67,37 +67,39 @@ function App() {
 
   // --- Effects ---
   useEffect(() => {
-    // Simulate initial loading
     const timer = setTimeout(() => setLoading(false), 1500);
+    backendService.getAnnouncements().then(setAnnouncements).catch(console.error);
     return () => clearTimeout(timer);
   }, []);
 
+  // Fetch user-specific data when user logs in or on initial load
   useEffect(() => {
-    // Fetch community announcements
-    backendService.getAnnouncements().then(setAnnouncements).catch(console.error);
-  }, []);
+    if (currentUser) {
+      backendService.getWaypointsForUser(currentUser.id)
+        .then(setWaypoints)
+        .catch(console.error);
+    } else {
+      // Clear user data if logged out
+      setWaypoints([]);
+      setActiveWaypoint(null);
+      setIsTracking(false);
+    }
+  }, [currentUser]);
 
   // Main tracking logic
   useEffect(() => {
     if (isTracking && userPosition && activeWaypoint) {
       const dist = calculateDistance(userPosition[0], userPosition[1], activeWaypoint.position[0], activeWaypoint.position[1]);
       setDistance(dist);
-
-      // Check for alert radius trigger
       const triggeredRadius = alertRadiuses.find(radius => dist <= radius);
       if (triggeredRadius && !triggeredAlarms.includes(`${activeWaypoint.id}-${triggeredRadius}`)) {
         setAlertingRadius(triggeredRadius);
-        // Persist trigger so it doesn't re-fire on app reload
         setTriggeredAlarms(prev => [...prev, `${activeWaypoint.id}-${triggeredRadius}`]);
-
-        // Background notification logic
         if (document.hidden) {
             alertService.notifyInBackground(triggeredRadius, alertOptions, selectedRingtone);
         }
       }
-
-      // Calculate ETA
-      if (speed && speed > 1) { // Only calculate if moving
+      if (speed && speed > 1) {
         const timeSeconds = dist / speed;
         const etaDate = new Date(Date.now() + timeSeconds * 1000);
         setEta(etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -123,94 +125,102 @@ function App() {
 
   // Check for transit alarms
   useEffect(() => {
-    const checkAlarms = () => {
+    const intervalId = setInterval(() => {
         const now = new Date();
-        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
         for (const alarm of alarms) {
             if (alarm.enabled && !triggeredTransitAlarm) {
                 const [alarmHour, alarmMinute] = alarm.time.split(':').map(Number);
                 const alarmTime = new Date();
                 alarmTime.setHours(alarmHour, alarmMinute, 0, 0);
-
                 const leadTimeMs = alarm.leadTime * 60 * 1000;
                 const notifyTime = new Date(alarmTime.getTime() - leadTimeMs);
-
-                const notifyTimeString = `${notifyTime.getHours().toString().padStart(2, '0')}:${notifyTime.getMinutes().toString().padStart(2, '0')}`;
-
-                if (currentTime === notifyTimeString) {
+                if (now >= notifyTime && now < alarmTime) {
                     setTriggeredTransitAlarm(alarm);
                     break;
                 }
             }
         }
-    };
-    const intervalId = setInterval(checkAlarms, 30000); // Check every 30 seconds
+    }, 30000);
     return () => clearInterval(intervalId);
   }, [alarms, triggeredTransitAlarm]);
 
   // --- Handlers ---
   const handleToggleTracking = () => {
     setIsTracking(prev => !prev);
-    if (isTracking) { // if stopping tracking
+    if (isTracking) {
       alertService.stop();
       setAlertingRadius(null);
     }
   };
 
-  const handleDismissAlert = () => {
-    alertService.stop();
-    setAlertingRadius(null);
-  };
-  
   const handleMapClick = (position: LatLngTuple) => {
+    if (!currentUser) {
+      setIsAuthOpen(true);
+      return;
+    }
     setWaypointToEdit({ position });
   };
 
-  const handleSaveWaypoint = (waypointData: Omit<Waypoint, 'id'>) => {
-    const newWaypoint = { ...waypointData, id: new Date().toISOString() };
-    const updatedWaypoints = [...waypoints, newWaypoint];
-    setWaypoints(updatedWaypoints);
-    setActiveWaypoint(newWaypoint);
-    setWaypointToEdit(null);
+  const handleSaveWaypoint = async (waypointData: Omit<Waypoint, 'id' | 'userId'>) => {
+    if (!currentUser) return;
+    try {
+        const newWaypoint = await backendService.addWaypointForUser(waypointData, currentUser.id);
+        setWaypoints(prev => [...prev, newWaypoint]);
+        setActiveWaypoint(newWaypoint);
+        setWaypointToEdit(null);
+    } catch (error) {
+        console.error("Failed to save waypoint:", error);
+    }
   };
 
-  const handleDeleteWaypoint = (id: string) => {
-    if (activeWaypoint?.id === id) {
-      setActiveWaypoint(null);
+  const handleDeleteWaypoint = async (id: string) => {
+    if (!currentUser) return;
+    try {
+        await backendService.deleteWaypointForUser(id, currentUser.id);
+        if (activeWaypoint?.id === id) setActiveWaypoint(null);
+        setWaypoints(waypoints.filter(wp => wp.id !== id));
+    } catch (error) {
+        console.error("Failed to delete waypoint:", error);
     }
-    setWaypoints(waypoints.filter(wp => wp.id !== id));
   };
   
   const handleSelectWaypoint = (waypoint: Waypoint) => {
       setActiveWaypoint(waypoint);
-      setIsSettingsOpen(false); // Close settings after selecting
+      setIsSettingsOpen(false);
   }
   
   const handleClearActiveWaypoint = () => {
     setActiveWaypoint(null);
     setIsTracking(false);
-    setTriggeredAlarms([]); // Reset triggers for this destination
+    setTriggeredAlarms([]);
   };
   
-  const handleDestinationFound = (position: LatLngTuple) => {
-    setIsAIAssistantOpen(false);
-    setWaypointToEdit({ position });
-  };
-
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     setIsAuthOpen(false);
   }
 
-  // --- Render Logic ---
-  if (loading) {
-    return <Preloader />;
-  }
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setIsAuthOpen(false);
+  };
+  
+  const handleAddAnnouncement = (announcement: Announcement) => {
+    setAnnouncements(prev => [announcement, ...prev]);
+  };
+  
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!currentUser) return;
+    try {
+      await backendService.deleteAnnouncement(id, currentUser.id);
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+    } catch (error) {
+      console.error("Failed to delete announcement:", error);
+    }
+  };
 
-  if (showIntro) {
-    return <IntroductionModal onDismiss={() => setShowIntro(false)} />;
-  }
+  if (loading) return <Preloader />;
+  if (showIntro) return <IntroductionModal onDismiss={() => setShowIntro(false)} />;
   
   return (
     <div className="h-screen w-screen bg-gray-900 text-white font-sans">
@@ -248,69 +258,30 @@ function App() {
         onOpenLocationPermissionInfo={() => setIsLocationInfoOpen(true)}
       />
       
-      {/* Modals & Pages */}
       {alertingRadius !== null && (
-        <AlertModal
-          onDismiss={handleDismissAlert}
-          alertOptions={alertOptions}
-          ringtoneUrl={selectedRingtone.url}
-          alertingRadius={alertingRadius}
-          waypoint={activeWaypoint}
-        />
+        <AlertModal onDismiss={() => { alertService.stop(); setAlertingRadius(null); }} alertOptions={alertOptions} ringtoneUrl={selectedRingtone.url} alertingRadius={alertingRadius} waypoint={activeWaypoint}/>
       )}
       {isSettingsOpen && (
-        <SettingsPage
-          onClose={() => setIsSettingsOpen(false)}
-          mapTheme={mapTheme}
-          setMapTheme={setMapTheme}
-          highAccuracyGPS={highAccuracyGPS}
-          setHighAccuracyGPS={setHighAccuracyGPS}
-          keepScreenOn={keepScreenOn}
-          setKeepScreenOn={setKeepScreenOn}
-          waypoints={waypoints}
-          onSelectWaypoint={handleSelectWaypoint}
-          onDeleteWaypoint={handleDeleteWaypoint}
-          selectedRingtoneId={selectedRingtoneId}
-          setSelectedRingtoneId={setSelectedRingtoneId}
-          alarms={alarms}
-          setAlarms={setAlarms}
-        />
+        <SettingsPage onClose={() => setIsSettingsOpen(false)} mapTheme={mapTheme} setMapTheme={setMapTheme} highAccuracyGPS={highAccuracyGPS} setHighAccuracyGPS={setHighAccuracyGPS} keepScreenOn={keepScreenOn} setKeepScreenOn={setKeepScreenOn} waypoints={waypoints} onSelectWaypoint={handleSelectWaypoint} onDeleteWaypoint={handleDeleteWaypoint} selectedRingtoneId={selectedRingtoneId} setSelectedRingtoneId={setSelectedRingtoneId} alarms={alarms} setAlarms={setAlarms}/>
       )}
       {isAIAssistantOpen && (
-        <FindDestinationModal 
-            onClose={() => setIsAIAssistantOpen(false)}
-            onDestinationFound={handleDestinationFound}
-        />
+        <FindDestinationModal onClose={() => setIsAIAssistantOpen(false)} onDestinationFound={(pos) => { setIsAIAssistantOpen(false); handleMapClick(pos); }} />
       )}
       {waypointToEdit && (
-        <EditWaypointModal
-            onClose={() => setWaypointToEdit(null)}
-            onSave={handleSaveWaypoint}
-            waypoint={waypointToEdit}
-        />
+        // Fix: Corrected typo from waypointToedit to waypointToEdit.
+        <EditWaypointModal onClose={() => setWaypointToEdit(null)} onSave={handleSaveWaypoint} waypoint={waypointToEdit} />
       )}
       {isLocationInfoOpen && (
           <LocationPermissionModal onAcknowledge={() => setIsLocationInfoOpen(false)} />
       )}
       {triggeredTransitAlarm && (
-          <TransitAlarmModal 
-            alarm={triggeredTransitAlarm}
-            ringtoneUrl={selectedRingtone.url}
-            onDismiss={() => setTriggeredTransitAlarm(null)}
-          />
+          <TransitAlarmModal alarm={triggeredTransitAlarm} ringtoneUrl={selectedRingtone.url} onDismiss={() => setTriggeredTransitAlarm(null)} />
       )}
       {isAuthOpen && (
-        <AuthModal 
-          onClose={() => setIsAuthOpen(false)}
-          onLoginSuccess={handleLoginSuccess}
-        />
+        <AuthModal onClose={() => setIsAuthOpen(false)} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout} currentUser={currentUser} />
       )}
       {isAnnouncementsOpen && (
-        <AnnouncementsFeed
-          onClose={() => setIsAnnouncementsOpen(false)}
-          currentUser={currentUser}
-          userPosition={userPosition}
-        />
+        <AnnouncementsFeed onClose={() => setIsAnnouncementsOpen(false)} currentUser={currentUser} userPosition={userPosition} announcements={announcements} setAnnouncements={setAnnouncements} onAddAnnouncement={handleAddAnnouncement} onDeleteAnnouncement={handleDeleteAnnouncement}/>
       )}
     </div>
   );

@@ -5,7 +5,7 @@ import IconX from './icons/IconX';
 
 interface EditWaypointModalProps {
   onClose: () => void;
-  onSave: (waypoint: Omit<Waypoint, 'id'>) => void;
+  onSave: (waypoint: Omit<Waypoint, 'id' | 'userId'>) => void;
   waypoint: Partial<Waypoint> & { position: LatLngTuple };
 }
 

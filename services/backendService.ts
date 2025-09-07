@@ -1,14 +1,15 @@
-import { UserCredentials, Announcement, LatLngTuple, User, AnnouncementType } from '../types';
+import { UserCredentials, Announcement, LatLngTuple, User, AnnouncementType, Waypoint } from '../types';
 
 // --- SIMULATED BACKEND ---
-// In a real app, this would be an API client.
-// Here, we use localStorage to simulate a persistent database.
+// This service mimics a real-world API by managing data in localStorage
+// with user-specific ownership rules.
 
 const DB_KEY = 'wakemeatstop_db';
 
 interface Database {
   users: UserCredentials[];
   announcements: Announcement[];
+  waypoints: Waypoint[];
 }
 
 const getDb = (): Database => {
@@ -20,31 +21,11 @@ const getDb = (): Database => {
   } catch (e) {
     console.error("Failed to read DB from localStorage", e);
   }
-  // Default data if DB is empty or corrupt
+  // Initialize with an empty structure
   return {
     users: [],
-    announcements: [
-        {
-            id: 'anno-1',
-            userId: 'user-1',
-            userName: 'TransitFan',
-            position: [51.515, -0.09],
-            message: "Heads up! The Northern line is experiencing minor delays at Bank station.",
-            type: 'delay',
-            timestamp: Date.now() - 1000 * 60 * 15, // 15 mins ago
-            upvotes: 5,
-        },
-        {
-            id: 'anno-2',
-            userId: 'user-2',
-            userName: 'CityExplorer',
-            position: [51.505, -0.07],
-            message: "Ticket inspectors are active on buses around London Bridge.",
-            type: 'info',
-            timestamp: Date.now() - 1000 * 60 * 45, // 45 mins ago
-            upvotes: 12,
-        }
-    ],
+    announcements: [],
+    waypoints: [],
   };
 };
 
@@ -94,17 +75,11 @@ export const backendService = {
 
   getAnnouncements: async (): Promise<Announcement[]> => {
     const db = getDb();
-    // Sort by most recent
     const sorted = [...db.announcements].sort((a, b) => b.timestamp - a.timestamp);
-    return simulateApi(sorted);
+    return simulateApi(sorted, 800);
   },
 
-  addAnnouncement: async (
-    message: string, 
-    type: AnnouncementType,
-    position: LatLngTuple, 
-    user: User
-  ): Promise<Announcement> => {
+  addAnnouncement: async (message: string, type: AnnouncementType, position: LatLngTuple, user: User): Promise<Announcement> => {
     const db = getDb();
     const newAnnouncement: Announcement = {
         id: `anno-${Date.now()}`,
@@ -116,9 +91,23 @@ export const backendService = {
         timestamp: Date.now(),
         upvotes: 0,
     };
-    db.announcements.unshift(newAnnouncement); // Add to beginning
+    db.announcements.unshift(newAnnouncement);
     saveDb(db);
     return simulateApi(newAnnouncement, 800);
+  },
+
+  deleteAnnouncement: async (announcementId: string, userId: string): Promise<void> => {
+    const db = getDb();
+    const announcementIndex = db.announcements.findIndex(a => a.id === announcementId);
+    if (announcementIndex === -1) {
+        return simulateApiError('Announcement not found.');
+    }
+    if (db.announcements[announcementIndex].userId !== userId) {
+        return simulateApiError('You are not authorized to delete this announcement.');
+    }
+    db.announcements.splice(announcementIndex, 1);
+    saveDb(db);
+    return simulateApi(undefined, 400);
   },
 
   upvoteAnnouncement: async (announcementId: string): Promise<Announcement> => {
@@ -130,5 +119,38 @@ export const backendService = {
     announcement.upvotes += 1;
     saveDb(db);
     return simulateApi(announcement, 300);
+  },
+  
+  // --- Waypoint Management ---
+  getWaypointsForUser: async (userId: string): Promise<Waypoint[]> => {
+    const db = getDb();
+    const userWaypoints = db.waypoints.filter(wp => wp.userId === userId);
+    return simulateApi(userWaypoints, 600);
+  },
+  
+  addWaypointForUser: async (waypointData: Omit<Waypoint, 'id' | 'userId'>, userId: string): Promise<Waypoint> => {
+    const db = getDb();
+    const newWaypoint: Waypoint = {
+        ...waypointData,
+        id: `wp-${Date.now()}`,
+        userId: userId,
+    };
+    db.waypoints.push(newWaypoint);
+    saveDb(db);
+    return simulateApi(newWaypoint);
+  },
+  
+  deleteWaypointForUser: async (waypointId: string, userId: string): Promise<void> => {
+    const db = getDb();
+    const waypointIndex = db.waypoints.findIndex(wp => wp.id === waypointId);
+    if (waypointIndex === -1) {
+        return simulateApiError('Waypoint not found.');
+    }
+    if (db.waypoints[waypointIndex].userId !== userId) {
+        return simulateApiError('You are not authorized to delete this waypoint.');
+    }
+    db.waypoints.splice(waypointIndex, 1);
+    saveDb(db);
+    return simulateApi(undefined, 400);
   }
 };
