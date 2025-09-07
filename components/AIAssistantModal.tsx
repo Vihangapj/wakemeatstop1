@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { LatLngTuple } from '../types';
 import IconSparkles from './icons/IconSparkles';
+import IconX from './icons/IconX';
 
 interface FindDestinationModalProps {
   onClose: () => void;
@@ -72,16 +73,14 @@ const FindDestinationModal: React.FC<FindDestinationModalProps> = ({ onClose, on
         <header className="flex items-center justify-between p-4 border-b border-gray-700">
           <h2 className="flex items-center gap-3 text-xl font-bold text-white">
             <IconSparkles className="w-6 h-6 text-teal-400"/>
-            Find Destination
+            AI Assistant
           </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
             aria-label="Close"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <IconX className="w-6 h-6" />
           </button>
         </header>
 

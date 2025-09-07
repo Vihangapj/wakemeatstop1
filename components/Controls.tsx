@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { AlertOptions } from '../types';
+import { AlertOptions, Waypoint, WeatherData } from '../types';
 import IconBell from './icons/IconBell';
 import IconVibration from './icons/IconVibration';
 import IconSpeaker from './icons/IconSpeaker';
 import IconSparkles from './icons/IconSparkles';
-import IconStar from './icons/IconStar';
 import IconClock from './icons/IconClock';
 import IconTrash from './icons/IconTrash';
 import IconPlay from './icons/IconPlay';
 import IconStop from './icons/IconStop';
+import WeatherDisplay from './WeatherDisplay';
+import IconX from './icons/IconX';
 
 interface ControlsProps {
   alertRadiuses: number[];
@@ -19,12 +20,12 @@ interface ControlsProps {
   onToggleTracking: () => void;
   distance: number | null;
   eta: string | null;
-  hasDestination: boolean;
+  activeWaypoint: Waypoint | null;
+  onClearActiveWaypoint: () => void;
   geolocationError: string | null;
+  weatherData: WeatherData | null;
   onOpenFindDestination: () => void;
   onOpenLocationPermissionInfo: () => void;
-  onSaveFavorite: () => void;
-  isFavorite: boolean;
 }
 
 const Controls: React.FC<ControlsProps> = ({
@@ -36,12 +37,12 @@ const Controls: React.FC<ControlsProps> = ({
   onToggleTracking,
   distance,
   eta,
-  hasDestination,
+  activeWaypoint,
+  onClearActiveWaypoint,
   geolocationError,
+  weatherData,
   onOpenFindDestination,
   onOpenLocationPermissionInfo,
-  onSaveFavorite,
-  isFavorite,
 }) => {
   const [newRadius, setNewRadius] = useState<string>('500');
 
@@ -53,20 +54,7 @@ const Controls: React.FC<ControlsProps> = ({
     return `${Math.round(dist)} m`;
   };
 
-  const getStatusMessage = () => {
-    if (geolocationError) {
-      const isPermissionError = geolocationError.toLowerCase().includes('denied');
-      return (
-        <div className={`text-center p-3 rounded-lg w-full ${isPermissionError ? 'bg-red-900/50 border border-red-500/30' : 'bg-red-500/20'}`}>
-          <p className="text-red-300 text-sm font-medium">{geolocationError}</p>
-          {isPermissionError && (
-            <button onClick={onOpenLocationPermissionInfo} className="text-sm text-teal-300 hover:text-teal-200 font-semibold mt-2 underline">
-              Why is this needed?
-            </button>
-          )}
-        </div>
-      );
-    }
+  const StatusInfo = () => {
     if (isTracking) {
       return (
         <div className="flex items-center justify-around w-full text-center bg-gray-900/50 rounded-lg p-2">
@@ -88,8 +76,43 @@ const Controls: React.FC<ControlsProps> = ({
         </div>
       );
     }
-    if (!hasDestination) return <span className="text-gray-400">Tap map or use search to set destination</span>;
-    return <span className="text-gray-300">Ready to track</span>;
+    if (activeWaypoint) {
+      return (
+        <div className="w-full text-left bg-gray-900/50 rounded-lg p-3 relative">
+          <button 
+            onClick={onClearActiveWaypoint} 
+            className="absolute top-2 right-2 text-gray-500 hover:text-white transition-colors"
+            aria-label="Clear destination"
+          >
+            <IconX className="w-5 h-5" />
+          </button>
+          <div className="flex gap-4 items-center">
+            <div className="flex-grow">
+              <p className="text-sm text-gray-400 font-semibold uppercase">{activeWaypoint.type}</p>
+              <h3 className="text-lg font-bold text-white truncate">{activeWaypoint.name}</h3>
+              {activeWaypoint.reminder && <p className="text-sm text-teal-300 truncate">{activeWaypoint.reminder}</p>}
+            </div>
+            {weatherData && <WeatherDisplay weatherData={weatherData} />}
+          </div>
+        </div>
+      );
+    }
+    return <span className="text-gray-400">Tap map or use AI to set destination</span>;
+  }
+
+  const GeolocationError = () => {
+    if (!geolocationError) return null;
+    const isPermissionError = geolocationError.toLowerCase().includes('denied');
+    return (
+      <div className={`text-center p-3 rounded-lg w-full mb-4 ${isPermissionError ? 'bg-red-900/50 border border-red-500/30' : 'bg-red-500/20'}`}>
+        <p className="text-red-300 text-sm font-medium">{geolocationError}</p>
+        {isPermissionError && (
+          <button onClick={onOpenLocationPermissionInfo} className="text-sm text-teal-300 hover:text-teal-200 font-semibold mt-2 underline">
+            Why is this needed?
+          </button>
+        )}
+      </div>
+    );
   }
 
   const toggleAlertOption = (option: keyof AlertOptions) => {
@@ -113,8 +136,10 @@ const Controls: React.FC<ControlsProps> = ({
     <div className="absolute bottom-0 left-0 right-0 z-[1000] p-4">
       <div className="bg-gray-900/70 backdrop-blur-lg rounded-2xl shadow-2xl p-5 text-white max-w-md mx-auto border border-gray-700">
         
-        <div className="text-center mb-4 h-16 flex items-center justify-center font-medium">
-          {getStatusMessage()}
+        <GeolocationError />
+        
+        <div className="text-center mb-4 min-h-[4rem] flex items-center justify-center font-medium">
+          <StatusInfo />
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -122,7 +147,7 @@ const Controls: React.FC<ControlsProps> = ({
               <label className="block text-sm font-medium text-gray-300 text-center">
                 Alert Distances (meters)
               </label>
-              {hasDestination && !isTracking ? (
+              {activeWaypoint && !isTracking ? (
                 <div className="space-y-3">
                   <div className="flex gap-2 items-center">
                     <input
@@ -166,16 +191,11 @@ const Controls: React.FC<ControlsProps> = ({
             <button onClick={onOpenFindDestination} className="p-4 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all active:scale-95 flex-shrink-0" aria-label="Open AI Assistant">
               <IconSparkles className="w-6 h-6 text-teal-400" />
             </button>
-            {hasDestination && !isFavorite && (
-                <button onClick={onSaveFavorite} disabled={isTracking} className="p-4 bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-400 rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0">
-                    <IconStar className="w-6 h-6"/>
-                </button>
-            )}
             <button
               onClick={onToggleTracking}
-              disabled={!hasDestination || !!geolocationError}
+              disabled={!activeWaypoint || !!geolocationError}
               className={`w-full font-bold py-3 px-4 rounded-lg transition-all duration-300 text-lg flex items-center justify-center gap-2 transform active:scale-95
-                ${!hasDestination || !!geolocationError ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 
+                ${!activeWaypoint || !!geolocationError ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 
                 isTracking ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-teal-500 hover:bg-teal-400 text-white shadow-lg shadow-teal-500/30'}`}
             >
               {isTracking ? (

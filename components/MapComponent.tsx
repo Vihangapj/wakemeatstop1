@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, useMapEvents, Polyline, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
-import { LatLngTuple, MapTheme } from '../types';
+import { LatLngTuple, MapTheme, Waypoint, WaypointType } from '../types';
 import IconTarget from './icons/IconTarget';
 import IconUserLocation from './icons/IconUserLocation';
 import { renderToStaticMarkup } from 'react-dom/server';
 import MapAnimator from './MapAnimator';
 import IconCrosshairs from './icons/IconCrosshairs';
+import IconMapPin from './icons/IconMapPin';
 
 interface MapThemeConfig {
   url: string;
@@ -30,8 +31,10 @@ const mapThemes: Record<MapTheme, MapThemeConfig> = {
 
 interface MapComponentProps {
   userPosition: LatLngTuple | null;
-  destination: LatLngTuple | null;
-  setDestination: (position: LatLngTuple) => void;
+  activeWaypoint: Waypoint | null;
+  waypoints: Waypoint[];
+  onMapClick: (position: LatLngTuple) => void;
+  onWaypointClick: (waypoint: Waypoint) => void;
   alertRadiuses: number[];
   isTracking: boolean;
   mapTheme: MapTheme;
@@ -45,34 +48,41 @@ const userIcon = new L.DivIcon({
   iconAnchor: [16, 32],
 });
 
-const destinationIconSvg = renderToStaticMarkup(<IconTarget className="w-8 h-8 text-red-500 drop-shadow-lg" />);
-const destinationIcon = new L.DivIcon({
-    html: destinationIconSvg,
+const activeWaypointIconSvg = renderToStaticMarkup(<IconTarget className="w-10 h-10 text-red-500 drop-shadow-lg animate-pulse" />);
+const activeWaypointIcon = new L.DivIcon({
+    html: activeWaypointIconSvg,
     className: '',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
 });
 
-const MapClickHandler: React.FC<{ setDestination: (pos: LatLngTuple) => void, isTracking: boolean }> = ({ setDestination, isTracking }) => {
+const getWaypointIcon = (type: WaypointType) => {
+    const colors: Record<WaypointType, string> = {
+        stop: 'text-blue-400',
+        shop: 'text-green-400',
+        poi: 'text-purple-400',
+    }
+    const color = colors[type] || 'text-gray-400';
+    const svg = renderToStaticMarkup(<IconMapPin className={`w-8 h-8 ${color} drop-shadow-md waypoint-icon`} />);
+    return new L.DivIcon({
+        html: svg,
+        className: '',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+    });
+}
+
+
+const MapClickHandler: React.FC<{ onMapClick: (pos: LatLngTuple) => void, isTracking: boolean }> = ({ onMapClick, isTracking }) => {
   useMapEvents({
     click(e) {
       if (!isTracking) {
-        setDestination([e.latlng.lat, e.latlng.lng]);
+        onMapClick([e.latlng.lat, e.latlng.lng]);
       }
     },
   });
   return null;
 };
-
-const ChangeZoomControlPosition: React.FC = () => {
-    const map = useMap();
-    useEffect(() => {
-        if (map.zoomControl) {
-            map.zoomControl.setPosition('topright');
-        }
-    }, [map]);
-    return null;
-}
 
 const MyLocationButton: React.FC<{ userPosition: LatLngTuple | null }> = ({ userPosition }) => {
     const map = useMap();
@@ -99,7 +109,7 @@ const MyLocationButton: React.FC<{ userPosition: LatLngTuple | null }> = ({ user
 };
 
 
-const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, setDestination, alertRadiuses, isTracking, mapTheme }) => {
+const MapComponent: React.FC<MapComponentProps> = ({ userPosition, activeWaypoint, waypoints, onMapClick, onWaypointClick, alertRadiuses, isTracking, mapTheme }) => {
   const defaultCenter: LatLngTuple = [51.505, -0.09];
   const center = userPosition || defaultCenter;
   const themeConfig = mapThemes[mapTheme];
@@ -112,20 +122,29 @@ const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, 
         url={themeConfig.url}
         attribution={themeConfig.attribution}
       />
-      <MapClickHandler setDestination={setDestination} isTracking={isTracking} />
-      <MapAnimator destination={destination} userPosition={userPosition} isTracking={isTracking} />
+      <MapClickHandler onMapClick={onMapClick} isTracking={isTracking} />
+      <MapAnimator activeWaypoint={activeWaypoint} userPosition={userPosition} isTracking={isTracking} />
       
       {userPosition && (
         <Marker position={userPosition} icon={userIcon} />
       )}
 
-      {destination && (
+      {waypoints.map(waypoint => waypoint.id !== activeWaypoint?.id && (
+        <Marker 
+          key={waypoint.id} 
+          position={waypoint.position} 
+          icon={getWaypointIcon(waypoint.type)}
+          eventHandlers={{ click: () => onWaypointClick(waypoint) }}
+        />
+      ))}
+
+      {activeWaypoint && (
         <>
-          <Marker position={destination} icon={destinationIcon} />
+          <Marker position={activeWaypoint.position} icon={activeWaypointIcon} zIndexOffset={1000} />
           {alertRadiuses.map(radius => (
             <Circle
               key={radius}
-              center={destination}
+              center={activeWaypoint.position}
               pathOptions={{
                 color: isTracking ? '#0d9488' : '#f43f5e',
                 fillColor: isTracking ? '#14b8a6' : '#ef4444',
@@ -137,10 +156,10 @@ const MapComponent: React.FC<MapComponentProps> = ({ userPosition, destination, 
         </>
       )}
 
-      {userPosition && destination && (
+      {userPosition && activeWaypoint && (
         <Polyline
             pathOptions={{ color: 'rgba(255, 255, 255, 0.5)', weight: 3, dashArray: '5, 10' }}
-            positions={[userPosition, destination]}
+            positions={[userPosition, activeWaypoint.position]}
         />
       )}
       <MyLocationButton userPosition={userPosition} />

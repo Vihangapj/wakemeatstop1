@@ -1,25 +1,25 @@
 import React, { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
-import { LatLngTuple } from '../types';
+import { LatLngTuple, Waypoint } from '../types';
 
 interface MapAnimatorProps {
-  destination: LatLngTuple | null;
+  activeWaypoint: Waypoint | null;
   userPosition: LatLngTuple | null;
   isTracking: boolean;
 }
 
-const MapAnimator: React.FC<MapAnimatorProps> = ({ destination, userPosition, isTracking }) => {
+const MapAnimator: React.FC<MapAnimatorProps> = ({ activeWaypoint, userPosition, isTracking }) => {
   const map = useMap();
 
   useEffect(() => {
     // Animate to destination when it's set or changed
-    if (destination) {
-      map.flyTo(destination, 15, {
+    if (activeWaypoint) {
+      map.flyTo(activeWaypoint.position, 15, {
         animate: true,
         duration: 1.5,
       });
     }
-  }, [destination, map]);
+  }, [activeWaypoint, map]);
 
   useEffect(() => {
     // Animate to user's position when tracking starts or position is found

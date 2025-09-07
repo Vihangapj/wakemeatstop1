@@ -1,10 +1,14 @@
-import React from 'react';
-import { MapTheme, Favorite, LatLngTuple } from '../types';
+import React, { useState } from 'react';
+import { MapTheme, Waypoint, LatLngTuple, TransitAlarm } from '../types';
 import { ringtones } from '../data/ringtones';
 import IconTrash from './icons/IconTrash';
 import IconTarget from './icons/IconTarget';
 import IconPlay from './icons/IconPlay';
 import IconStar from './icons/IconStar';
+import IconPlus from './icons/IconPlus';
+import IconEdit from './icons/IconEdit';
+import EditAlarmModal from './EditAlarmModal';
+import IconX from './icons/IconX';
 
 interface SettingsPageProps {
   onClose: () => void;
@@ -14,11 +18,13 @@ interface SettingsPageProps {
   setHighAccuracyGPS: (enabled: boolean) => void;
   keepScreenOn: boolean;
   setKeepScreenOn: (enabled: boolean) => void;
-  favorites: Favorite[];
-  onSelectFavorite: (position: LatLngTuple) => void;
-  onDeleteFavorite: (id: string) => void;
+  waypoints: Waypoint[];
+  onSelectWaypoint: (waypoint: Waypoint) => void;
+  onDeleteWaypoint: (id: string) => void;
   selectedRingtoneId: string;
   setSelectedRingtoneId: (id: string) => void;
+  alarms: TransitAlarm[];
+  setAlarms: React.Dispatch<React.SetStateAction<TransitAlarm[]>>;
 }
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
@@ -29,22 +35,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   setHighAccuracyGPS,
   keepScreenOn,
   setKeepScreenOn,
-  favorites,
-  onSelectFavorite,
-  onDeleteFavorite,
+  waypoints,
+  onSelectWaypoint,
+  onDeleteWaypoint,
   selectedRingtoneId,
   setSelectedRingtoneId,
+  alarms,
+  setAlarms,
 }) => {
+  const [alarmToEdit, setAlarmToEdit] = useState<TransitAlarm | Partial<TransitAlarm> | null>(null);
+
   const mapThemes: { id: MapTheme; label: string, previewClass: string }[] = [
     { id: 'dark', label: 'Dark', previewClass: 'bg-gray-800 border-2 border-gray-600' },
     { id: 'light', label: 'Light', previewClass: 'bg-gray-200 border-2 border-gray-400' },
     { id: 'satellite', label: 'Satellite', previewClass: 'bg-cover bg-center border-2 border-gray-500 bg-[url(https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/8/6)]' },
   ];
-
-  const handleSelectFavorite = (favorite: Favorite) => {
-    onSelectFavorite(favorite.position);
-    onClose();
-  };
 
   const handlePreviewSound = () => {
     const ringtone = ringtones.find(r => r.id === selectedRingtoneId);
@@ -54,7 +59,26 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     }
   };
 
+  const handleSaveAlarm = (alarmData: Omit<TransitAlarm, 'id'> | TransitAlarm) => {
+    if ('id' in alarmData) { // Editing existing alarm
+        setAlarms(alarms.map(a => a.id === alarmData.id ? alarmData : a));
+    } else { // Adding new alarm
+        const newAlarm: TransitAlarm = { ...alarmData, id: new Date().toISOString() };
+        setAlarms([...alarms, newAlarm]);
+    }
+    setAlarmToEdit(null);
+  };
+
+  const handleDeleteAlarm = (id: string) => {
+    setAlarms(alarms.filter(a => a.id !== id));
+  };
+
+  const handleToggleAlarm = (id: string) => {
+    setAlarms(alarms.map(a => a.id === id ? {...a, enabled: !a.enabled} : a));
+  };
+
   return (
+    <>
     <div className="fixed inset-0 z-[3000] bg-gray-900 animate-slide-in-from-right flex flex-col">
       <div className="bg-gray-800/80 backdrop-blur-md shadow-2xl w-full flex flex-col h-full">
         <header className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-700">
@@ -64,36 +88,73 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             className="text-gray-400 hover:text-white transition-colors p-2 -m-2"
             aria-label="Close settings"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <IconX className="w-6 h-6" />
           </button>
         </header>
 
         <div className="p-6 space-y-8 overflow-y-auto flex-grow">
-          {/* Favorite Places Setting */}
+          {/* Saved Places Setting */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-200 mb-3">Favorite Places</h3>
+            <h3 className="text-lg font-semibold text-gray-200 mb-3">Saved Places</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-              {favorites.length > 0 ? (
-                favorites.map(fav => (
-                  <div key={fav.id} className="bg-gray-700 rounded-lg p-3 flex items-center justify-between hover:bg-teal-500/10 transition-colors">
-                    <span className="font-medium text-white truncate mr-4">{fav.name}</span>
+              {waypoints.length > 0 ? (
+                waypoints.map(wp => (
+                  <div key={wp.id} className="bg-gray-700 rounded-lg p-3 flex items-center justify-between hover:bg-teal-500/10 transition-colors">
+                    <span className="font-medium text-white truncate mr-4">{wp.name}</span>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <button onClick={() => handleSelectFavorite(fav)} className="text-teal-400 hover:text-teal-300 p-1 transition-transform active:scale-90" title="Set as destination"><IconTarget className="w-6 h-6"/></button>
-                      <button onClick={() => onDeleteFavorite(fav.id)} className="text-red-500 hover:text-red-400 p-1 transition-transform active:scale-90" title="Delete favorite"><IconTrash className="w-6 h-6"/></button>
+                      <button onClick={() => onSelectWaypoint(wp)} className="text-teal-400 hover:text-teal-300 p-1 transition-transform active:scale-90" title="Set as destination"><IconTarget className="w-6 h-6"/></button>
+                      <button onClick={() => onDeleteWaypoint(wp.id)} className="text-red-500 hover:text-red-400 p-1 transition-transform active:scale-90" title="Delete place"><IconTrash className="w-6 h-6"/></button>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="text-center py-4 px-4 bg-gray-700/50 rounded-lg">
-                    <p className="text-sm text-gray-400">No favorite places saved yet.</p>
-                    <p className="text-xs text-gray-500 mt-1">Set a destination on the map and tap the <IconStar className="w-3 h-3 inline-block -mt-1"/> icon to save.</p>
+                    <p className="text-sm text-gray-400">No saved places yet.</p>
+                    <p className="text-xs text-gray-500 mt-1">Tap the map to create a new place.</p>
                 </div>
               )}
             </div>
           </div>
         
+          {/* Transit Alarms Setting */}
+           <div className="border-t border-gray-700/60 pt-6">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-semibold text-gray-200">Transit Alarms</h3>
+              <button onClick={() => setAlarmToEdit({})} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-3 rounded-lg text-sm transition-transform active:scale-95">
+                <IconPlus className="w-5 h-5"/> Add
+              </button>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+              {alarms.length > 0 ? (
+                alarms.map(alarm => (
+                  <div key={alarm.id} className="bg-gray-700 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleToggleAlarm(alarm.id)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${alarm.enabled ? 'bg-teal-500' : 'bg-gray-600'}`}
+                        role="switch" aria-checked={alarm.enabled}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${alarm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                      <div>
+                        <span className={`font-bold text-lg ${alarm.enabled ? 'text-white' : 'text-gray-400'}`}>{alarm.time}</span>
+                        <p className={`text-sm truncate ${alarm.enabled ? 'text-gray-300' : 'text-gray-500'}`}>{alarm.label}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => setAlarmToEdit(alarm)} className="text-gray-400 hover:text-white p-1 transition-transform active:scale-90" title="Edit alarm"><IconEdit className="w-6 h-6"/></button>
+                      <button onClick={() => handleDeleteAlarm(alarm.id)} className="text-red-500 hover:text-red-400 p-1 transition-transform active:scale-90" title="Delete alarm"><IconTrash className="w-6 h-6"/></button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 px-4 bg-gray-700/50 rounded-lg">
+                    <p className="text-sm text-gray-400">No transit alarms set.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Alert Sound Setting */}
           <div className="border-t border-gray-700/60 pt-6">
             <label htmlFor="ringtone-select" className="block text-lg font-semibold text-gray-200 mb-3">Alert Sound</label>
@@ -162,7 +223,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
               <div className="flex items-center justify-between bg-gray-700/50 p-4 rounded-lg">
                 <div>
                   <label htmlFor="keep-screen-on" className="block font-medium text-gray-200">Keep Screen On</label>
-                  <p className="text-xs text-gray-400">Prevents screen from sleeping.</p>
+                  <p className="text-xs text-gray-400">Prevents screen from sleeping while tracking.</p>
                 </div>
                 <button
                   id="keep-screen-on"
@@ -179,6 +240,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         </div>
       </div>
     </div>
+    {alarmToEdit && (
+        <EditAlarmModal
+            alarm={alarmToEdit}
+            onClose={() => setAlarmToEdit(null)}
+            onSave={handleSaveAlarm}
+        />
+    )}
+    </>
   );
 };
 
