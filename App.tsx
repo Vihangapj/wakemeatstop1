@@ -283,7 +283,6 @@ function App() {
         <FindDestinationModal onClose={() => setIsAIAssistantOpen(false)} onDestinationFound={(pos) => { setIsAIAssistantOpen(false); handleMapClick(pos); }} />
       )}
       {waypointToEdit && (
-        // Fix: Corrected typo from waypointToedit to waypointToEdit.
         <EditWaypointModal onClose={() => setWaypointToEdit(null)} onSave={handleSaveWaypoint} waypoint={waypointToEdit} />
       )}
       {isLocationInfoOpen && (
