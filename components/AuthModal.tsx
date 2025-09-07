@@ -14,13 +14,14 @@ interface AuthModalProps {
 const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, onLogout, currentUser }) => {
   const [isLoginView, setIsLoginView] = useState(true);
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim() || (!isLoginView && !name.trim())) {
       setError('Please fill in all fields.');
       return;
     }
@@ -28,11 +29,34 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, onLogout
     setError(null);
     try {
       const user = isLoginView
-        ? await backendService.login(name, password)
-        : await backendService.register(name, password);
+        ? await backendService.login(email, password)
+        : await backendService.register(name, email, password);
       onLoginSuccess(user);
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      let friendlyMessage = 'An unexpected error occurred.';
+      if (err.code) {
+          switch (err.code) {
+              case 'auth/invalid-email':
+                  friendlyMessage = 'Please enter a valid email address.';
+                  break;
+              case 'auth/user-not-found':
+              case 'auth/wrong-password':
+              case 'auth/invalid-credential':
+                  friendlyMessage = 'Invalid email or password.';
+                  break;
+              case 'auth/email-already-in-use':
+                  friendlyMessage = 'An account with this email already exists.';
+                  break;
+              case 'auth/weak-password':
+                  friendlyMessage = 'Password should be at least 6 characters.';
+                  break;
+              default:
+                  friendlyMessage = 'Authentication failed. Please try again.';
+          }
+      } else if (err.message) {
+          friendlyMessage = err.message;
+      }
+      setError(friendlyMessage);
     } finally {
       setIsLoading(false);
     }
@@ -75,21 +99,43 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, onLogout
         </header>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {!isLoginView && (
+            <div>
+              <label htmlFor="display-name" className="block text-sm font-medium text-gray-300 mb-1">Display Name</label>
+              <input
+                id="display-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., TransitFan"
+                className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-teal-500"
+                disabled={isLoading}
+              />
+            </div>
+          )}
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">Username</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">Email</label>
             <input
-              id="username" type="text" value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., TransitFan"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@example.com"
               className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-teal-500"
               disabled={isLoading}
+              autoComplete="email"
             />
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Password</label>
             <input
-              id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-teal-500"
               disabled={isLoading}
+              autoComplete={isLoginView ? 'current-password' : 'new-password'}
             />
           </div>
 

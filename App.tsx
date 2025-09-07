@@ -40,7 +40,7 @@ function App() {
   // App State - User Specific
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [activeWaypoint, setActiveWaypoint] = useState<Waypoint | null>(null);
-  const [currentUser, setCurrentUser] = usePersistentState<User | null>('currentUser', null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Live Tracking State
   const [isTracking, setIsTracking] = useState(false);
@@ -71,6 +71,15 @@ function App() {
     backendService.getAnnouncements().then(setAnnouncements).catch(console.error);
     return () => clearTimeout(timer);
   }, []);
+
+  // Auth state listener
+  useEffect(() => {
+    const unsubscribe = backendService.onAuthStateChangedListener((user) => {
+        setCurrentUser(user);
+    });
+    return unsubscribe; // Cleanup subscription on component unmount
+  }, []);
+
 
   // Fetch user-specific data when user logs in or on initial load
   useEffect(() => {
@@ -196,13 +205,19 @@ function App() {
   };
   
   const handleLoginSuccess = (user: User) => {
-    setCurrentUser(user);
+    // The auth listener will handle setting the user state.
+    // This function now just closes the modal.
     setIsAuthOpen(false);
   }
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setIsAuthOpen(false);
+  const handleLogout = async () => {
+    try {
+        await backendService.logout();
+        // The auth listener will set currentUser to null, triggering data cleanup.
+        setIsAuthOpen(false);
+    } catch (error) {
+        console.error("Logout failed:", error);
+    }
   };
   
   const handleAddAnnouncement = (announcement: Announcement) => {

@@ -1,156 +1,157 @@
-import { UserCredentials, Announcement, LatLngTuple, User, AnnouncementType, Waypoint } from '../types';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  onAuthStateChanged as onFirebaseAuthStateChanged,
+  User as FirebaseUser,
+} from 'firebase/auth';
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  doc,
+  deleteDoc,
+  updateDoc,
+  increment,
+  getDoc,
+  Timestamp,
+  GeoPoint,
+} from 'firebase/firestore';
+import { auth, db } from './firebase';
+import { User, Announcement, LatLngTuple, AnnouncementType, Waypoint } from '../types';
 
-// --- SIMULATED BACKEND ---
-// This service mimics a real-world API by managing data in localStorage
-// with user-specific ownership rules.
+// --- Auth ---
 
-const DB_KEY = 'wakemeatstop_db';
-
-interface Database {
-  users: UserCredentials[];
-  announcements: Announcement[];
-  waypoints: Waypoint[];
-}
-
-const getDb = (): Database => {
-  try {
-    const dbString = localStorage.getItem(DB_KEY);
-    if (dbString) {
-      return JSON.parse(dbString);
-    }
-  } catch (e) {
-    console.error("Failed to read DB from localStorage", e);
-  }
-  // Initialize with an empty structure
-  return {
-    users: [],
-    announcements: [],
-    waypoints: [],
-  };
-};
-
-const saveDb = (db: Database) => {
-  try {
-    localStorage.setItem(DB_KEY, JSON.stringify(db));
-  } catch (e) {
-    console.error("Failed to save DB to localStorage", e);
-  }
-};
-
-// Simulate API call latency
-const simulateApi = <T>(data: T, delay = 500): Promise<T> => {
-    return new Promise(resolve => setTimeout(() => resolve(data), delay));
-}
-const simulateApiError = (message: string, delay = 500): Promise<any> => {
-    return new Promise((_, reject) => setTimeout(() => reject(new Error(message)), delay));
-}
-
+const formatUser = (user: FirebaseUser): User => ({
+  id: user.uid,
+  name: user.displayName || user.email || 'Anonymous',
+});
 
 export const backendService = {
-  register: async (name: string, password: string): Promise<User> => {
-    const db = getDb();
-    if (db.users.some(u => u.name.toLowerCase() === name.toLowerCase())) {
-        return simulateApiError('Username is already taken.');
-    }
-    const newUser: UserCredentials = {
-      id: `user-${Date.now()}`,
-      name,
-      password, // In a real app, hash this!
-    };
-    db.users.push(newUser);
-    saveDb(db);
-    const { password: _, ...user } = newUser;
-    return simulateApi(user);
+  register: async (name: string, email: string, password: string): Promise<User> => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(userCredential.user, { displayName: name });
+    // Reload user to get the updated profile
+    await userCredential.user.reload();
+    return formatUser(userCredential.user);
   },
 
-  login: async (name: string, password: string): Promise<User> => {
-    const db = getDb();
-    const user = db.users.find(u => u.name.toLowerCase() === name.toLowerCase() && u.password === password);
-    if (!user) {
-        return simulateApiError('Invalid username or password.');
-    }
-    const { password: _, ...userInfo } = user;
-    return simulateApi(userInfo);
+  login: async (email: string, password: string): Promise<User> => {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return formatUser(userCredential.user);
   },
+
+  logout: (): Promise<void> => {
+    return signOut(auth);
+  },
+
+  onAuthStateChangedListener: (callback: (user: User | null) => void) => {
+    return onFirebaseAuthStateChanged(auth, (user) => {
+      callback(user ? formatUser(user) : null);
+    });
+  },
+
+  // --- Announcements ---
 
   getAnnouncements: async (): Promise<Announcement[]> => {
-    const db = getDb();
-    const sorted = [...db.announcements].sort((a, b) => b.timestamp - a.timestamp);
-    return simulateApi(sorted, 800);
+    const announcementsCol = collection(db, 'announcements');
+    const q = query(announcementsCol, orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        position: [data.position.latitude, data.position.longitude],
+        timestamp: (data.timestamp as Timestamp).toMillis(),
+      } as Announcement;
+    });
   },
 
   addAnnouncement: async (message: string, type: AnnouncementType, position: LatLngTuple, user: User): Promise<Announcement> => {
-    const db = getDb();
-    const newAnnouncement: Announcement = {
-        id: `anno-${Date.now()}`,
-        userId: user.id,
-        userName: user.name,
-        position,
-        message,
-        type,
-        timestamp: Date.now(),
-        upvotes: 0,
+    const newAnnouncementData = {
+      userId: user.id,
+      userName: user.name,
+      position: new GeoPoint(position[0], position[1]),
+      message,
+      type,
+      timestamp: Timestamp.fromDate(new Date()),
+      upvotes: 0,
     };
-    db.announcements.unshift(newAnnouncement);
-    saveDb(db);
-    return simulateApi(newAnnouncement, 800);
+    const docRef = await addDoc(collection(db, 'announcements'), newAnnouncementData);
+    return {
+      ...newAnnouncementData,
+      id: docRef.id,
+      position: position,
+      timestamp: newAnnouncementData.timestamp.toMillis(),
+    };
   },
 
   deleteAnnouncement: async (announcementId: string, userId: string): Promise<void> => {
-    const db = getDb();
-    const announcementIndex = db.announcements.findIndex(a => a.id === announcementId);
-    if (announcementIndex === -1) {
-        return simulateApiError('Announcement not found.');
+    const announcementRef = doc(db, 'announcements', announcementId);
+    const announcementSnap = await getDoc(announcementRef);
+    if (!announcementSnap.exists() || announcementSnap.data().userId !== userId) {
+      throw new Error('Permission denied or announcement not found.');
     }
-    if (db.announcements[announcementIndex].userId !== userId) {
-        return simulateApiError('You are not authorized to delete this announcement.');
-    }
-    db.announcements.splice(announcementIndex, 1);
-    saveDb(db);
-    return simulateApi(undefined, 400);
+    await deleteDoc(announcementRef);
   },
 
   upvoteAnnouncement: async (announcementId: string): Promise<Announcement> => {
-    const db = getDb();
-    const announcement = db.announcements.find(a => a.id === announcementId);
-    if (!announcement) {
-        return simulateApiError('Announcement not found.');
-    }
-    announcement.upvotes += 1;
-    saveDb(db);
-    return simulateApi(announcement, 300);
+    const announcementRef = doc(db, 'announcements', announcementId);
+    await updateDoc(announcementRef, {
+      upvotes: increment(1),
+    });
+    const updatedSnap = await getDoc(announcementRef);
+    const data = updatedSnap.data();
+    if (!data) throw new Error("Document not found after upvote");
+    return {
+      id: updatedSnap.id,
+      ...data,
+      position: [data.position.latitude, data.position.longitude],
+      timestamp: (data.timestamp as Timestamp).toMillis(),
+    } as Announcement;
   },
-  
+
   // --- Waypoint Management ---
+
   getWaypointsForUser: async (userId: string): Promise<Waypoint[]> => {
-    const db = getDb();
-    const userWaypoints = db.waypoints.filter(wp => wp.userId === userId);
-    return simulateApi(userWaypoints, 600);
+    const waypointsCol = collection(db, 'waypoints');
+    const q = query(waypointsCol, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        position: [data.position.latitude, data.position.longitude],
+      } as Waypoint;
+    });
   },
-  
+
   addWaypointForUser: async (waypointData: Omit<Waypoint, 'id' | 'userId'>, userId: string): Promise<Waypoint> => {
-    const db = getDb();
-    const newWaypoint: Waypoint = {
-        ...waypointData,
-        id: `wp-${Date.now()}`,
-        userId: userId,
+    const newWaypointData = {
+      ...waypointData,
+      position: new GeoPoint(waypointData.position[0], waypointData.position[1]),
+      userId,
     };
-    db.waypoints.push(newWaypoint);
-    saveDb(db);
-    return simulateApi(newWaypoint);
+    const docRef = await addDoc(collection(db, 'waypoints'), newWaypointData);
+    return {
+      ...waypointData,
+      id: docRef.id,
+      userId,
+    };
   },
-  
+
   deleteWaypointForUser: async (waypointId: string, userId: string): Promise<void> => {
-    const db = getDb();
-    const waypointIndex = db.waypoints.findIndex(wp => wp.id === waypointId);
-    if (waypointIndex === -1) {
-        return simulateApiError('Waypoint not found.');
+    const waypointRef = doc(db, 'waypoints', waypointId);
+    const waypointSnap = await getDoc(waypointRef);
+    if (!waypointSnap.exists() || waypointSnap.data().userId !== userId) {
+      throw new Error('Permission denied or waypoint not found.');
     }
-    if (db.waypoints[waypointIndex].userId !== userId) {
-        return simulateApiError('You are not authorized to delete this waypoint.');
-    }
-    db.waypoints.splice(waypointIndex, 1);
-    saveDb(db);
-    return simulateApi(undefined, 400);
-  }
+    await deleteDoc(waypointRef);
+  },
 };
