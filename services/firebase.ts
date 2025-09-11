@@ -1,6 +1,6 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
 // =================================================================================
 // !!! CRITICAL ACTION REQUIRED !!!
@@ -33,10 +33,29 @@ const firebaseConfig = {
   measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
+// We need to declare these variables to be exported, but they will be initialized conditionally.
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Validate that the essential Firebase config variables are present.
+// The app cannot function without these.
+if (
+  !firebaseConfig.apiKey ||
+  !firebaseConfig.authDomain ||
+  !firebaseConfig.projectId ||
+  !firebaseConfig.appId
+) {
+  // Throw a clear error for the developer to see in the console.
+  // This is more helpful than the cryptic error from the Firebase SDK.
+  throw new Error(
+    "Firebase configuration is missing or incomplete. Please ensure all required FIREBASE_* environment variables are set. The application cannot start without them."
+  );
+} else {
+  // All essential config is present, initialize Firebase.
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+}
 
 export { auth, db };
