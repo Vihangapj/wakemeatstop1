@@ -65,6 +65,17 @@ function App() {
   
   const selectedRingtone = ringtones.find(r => r.id === selectedRingtoneId) || ringtones[0];
 
+  const saveWaypointsToLocal = useCallback((waypointsToSave: Waypoint[]) => {
+    if (currentUser) {
+        const waypointsKey = `waypoints_${currentUser.id}`;
+        try {
+            window.localStorage.setItem(waypointsKey, JSON.stringify(waypointsToSave));
+        } catch (e) {
+            console.error("Failed to save waypoints to local storage", e);
+        }
+    }
+  }, [currentUser]);
+
   // --- Effects ---
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 1500);
@@ -81,17 +92,54 @@ function App() {
   }, []);
 
 
-  // Fetch user-specific data when user logs in or on initial load
+  // Sync and fetch user-specific waypoints when user logs in or on initial load
   useEffect(() => {
+    const waypointsKey = `waypoints_${currentUser?.id || 'guest'}`;
+
+    const syncAndFetchWaypoints = async (user: User) => {
+      // 1. Load local waypoints for the current user to provide an instant UI update
+      let localWaypoints: Waypoint[] = [];
+      try {
+        const storedValue = window.localStorage.getItem(waypointsKey);
+        localWaypoints = storedValue ? JSON.parse(storedValue) : [];
+        setWaypoints(localWaypoints);
+      } catch (error) {
+        console.error(`Error reading localStorage key “${waypointsKey}”:`, error);
+      }
+
+      // 2. Identify and sync any waypoints created offline
+      const unsyncedWaypoints = localWaypoints.filter(wp => wp.id.startsWith('temp_'));
+      if (unsyncedWaypoints.length > 0) {
+        console.log(`Syncing ${unsyncedWaypoints.length} offline waypoints...`);
+        for (const wp of unsyncedWaypoints) {
+          const { id, userId, ...dataToSave } = wp;
+          try {
+            await backendService.addWaypointForUser(dataToSave, user.id);
+          } catch (syncError) {
+            console.error(`Failed to sync waypoint ${wp.name}:`, syncError);
+          }
+        }
+      }
+    
+      // 3. Fetch the canonical, up-to-date list from Firestore.
+      try {
+        const remoteWaypoints = await backendService.getWaypointsForUser(user.id);
+        setWaypoints(remoteWaypoints);
+        // 4. Save the canonical list back to local storage, completing the sync.
+        window.localStorage.setItem(waypointsKey, JSON.stringify(remoteWaypoints));
+      } catch (error) {
+        console.error("Failed to fetch waypoints from backend:", error);
+      }
+    };
+
     if (currentUser) {
-      backendService.getWaypointsForUser(currentUser.id)
-        .then(setWaypoints)
-        .catch(console.error);
+      syncAndFetchWaypoints(currentUser);
     } else {
-      // Clear user data if logged out
+      // User logged out. Clear all user-specific data.
       setWaypoints([]);
       setActiveWaypoint(null);
       setIsTracking(false);
+      window.localStorage.removeItem(waypointsKey);
     }
   }, [currentUser]);
 
@@ -171,25 +219,73 @@ function App() {
   };
 
   const handleSaveWaypoint = async (waypointData: Omit<Waypoint, 'id' | 'userId'>) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+        setIsAuthOpen(true);
+        return;
+    }
+    
+    // Create a temporary waypoint for an immediate optimistic UI update.
+    const tempId = `temp_${Date.now()}`;
+    const newWaypoint: Waypoint = {
+        ...waypointData,
+        id: tempId,
+        userId: currentUser.id,
+    };
+
+    // Update state and local storage instantly.
+    const updatedWaypoints = [...waypoints, newWaypoint];
+    setWaypoints(updatedWaypoints);
+    saveWaypointsToLocal(updatedWaypoints);
+    
+    setActiveWaypoint(newWaypoint);
+    setWaypointToEdit(null);
+
+    // Asynchronously upload to the backend.
     try {
-        const newWaypoint = await backendService.addWaypointForUser(waypointData, currentUser.id);
-        setWaypoints(prev => [...prev, newWaypoint]);
-        setActiveWaypoint(newWaypoint);
-        setWaypointToEdit(null);
+        const savedWaypoint = await backendService.addWaypointForUser(waypointData, currentUser.id);
+        
+        // After successful upload, update the state with the permanent ID from the server.
+        setWaypoints(prev => {
+            const finalWaypoints = prev.map(wp => 
+                wp.id === tempId ? savedWaypoint : wp
+            );
+            saveWaypointsToLocal(finalWaypoints); // Persist the updated list with the permanent ID.
+            return finalWaypoints;
+        });
+        
+        // Also update the active waypoint if it's the one we just saved.
+        if (activeWaypoint?.id === tempId) {
+            setActiveWaypoint(savedWaypoint);
+        }
+
     } catch (error) {
-        console.error("Failed to save waypoint:", error);
+        console.error("Failed to sync waypoint:", error);
+        // If sync fails, the waypoint remains with a temporary ID and will be retried on the next app load/login.
     }
   };
 
   const handleDeleteWaypoint = async (id: string) => {
     if (!currentUser) return;
+
+    const originalWaypoints = [...waypoints];
+    
+    // Optimistically update UI and local storage.
+    const updatedWaypoints = waypoints.filter(wp => wp.id !== id);
+    setWaypoints(updatedWaypoints);
+    if (activeWaypoint?.id === id) setActiveWaypoint(null);
+    saveWaypointsToLocal(updatedWaypoints);
+
     try {
-        await backendService.deleteWaypointForUser(id, currentUser.id);
-        if (activeWaypoint?.id === id) setActiveWaypoint(null);
-        setWaypoints(waypoints.filter(wp => wp.id !== id));
+        // If the waypoint has a temporary ID, it only exists locally, so no need to call the backend.
+        if (!id.startsWith('temp_')) {
+            await backendService.deleteWaypointForUser(id, currentUser.id);
+        }
     } catch (error) {
-        console.error("Failed to delete waypoint:", error);
+        console.error("Failed to delete waypoint from backend:", error);
+        // If deletion fails, revert the change and restore the waypoint.
+        setWaypoints(originalWaypoints);
+        saveWaypointsToLocal(originalWaypoints);
+        // Optionally, inform the user about the failure.
     }
   };
   
