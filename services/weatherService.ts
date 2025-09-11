@@ -1,21 +1,9 @@
 import { WeatherData } from '../types';
 
-// --- IMPORTANT ---
-// The OpenWeatherMap API key is loaded from an environment variable.
-// To make the weather feature work, you MUST set the OPENWEATHER_API_KEY
-// variable in your deployment environment.
-//
-// 1. Go to https://openweathermap.org/appid
-// 2. Sign up and get your API key.
-// 3. Set it as an environment variable named OPENWEATHER_API_KEY.
-const API_KEY = process.env.OPENWEATHER_API_KEY;
+const API_KEY = '6cab979ab2cfd70b84e8d39baf24da9e';
 const BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
 export const getWeather = async (lat: number, lon: number): Promise<WeatherData | null> => {
-  if (!API_KEY) {
-    console.warn("OpenWeather API key is not set. The weather feature is disabled. Please set the OPENWEATHER_API_KEY environment variable.");
-    return null;
-  }
   try {
     const response = await fetch(`${BASE_URL}?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`);
     if (!response.ok) {
