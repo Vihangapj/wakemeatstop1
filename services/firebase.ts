@@ -5,17 +5,18 @@ import { getFirestore } from 'firebase/firestore';
 // =================================================================================
 // !!! CRITICAL ACTION REQUIRED !!!
 //
-// The configuration below is a placeholder and WILL NOT WORK. You must replace
-// these values with your own Firebase project's configuration for the app to
+// The configuration for Firebase is now loaded from environment variables.
+// You must set these variables in your deployment environment for the app to
 // function correctly. Authentication will fail until you do this.
 //
-// HOW TO GET YOUR CONFIG:
-// 1. Go to your Firebase project: https://console.firebase.google.com/
-// 2. Click the gear icon (⚙️) next to "Project Overview" and select "Project settings".
-// 3. In the "General" tab, scroll down to the "Your apps" section.
-// 4. Find your web app and click on "SDK setup and configuration".
-// 5. Select the "Config" option.
-// 6. Copy the entire `firebaseConfig` object and PASTE IT HERE.
+// Example environment variables:
+// FIREBASE_API_KEY="AIzaSy..."
+// FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
+// FIREBASE_PROJECT_ID="your-project-id"
+// FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
+// FIREBASE_MESSAGING_SENDER_ID="1234567890"
+// FIREBASE_APP_ID="1:1234567890:web:abcdef123456"
+// FIREBASE_MEASUREMENT_ID="G-ABCDEF123"
 //
 // ALSO, REMEMBER TO:
 // - Enable "Email/Password" as a sign-in provider in Firebase Console > Authentication > Sign-in method.
@@ -23,13 +24,13 @@ import { getFirestore } from 'firebase/firestore';
 // =================================================================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB658vYUrbFKUMr2xbfNZwkCjgduaMXyjc",
-  authDomain: "wakemeatstop.firebaseapp.com",
-  projectId: "wakemeatstop",
-  storageBucket: "wakemeatstop.firebasestorage.app",
-  messagingSenderId: "213650466318",
-  appId: "1:213650466318:web:342c52b46f6b46e5de3e5f",
-  measurementId: "G-TZ84GBG6ZZ"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
 
